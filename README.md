@@ -149,6 +149,6 @@ Three range families: ADR (14-day default), AWR (4-week default), AMR (6-month d
 
 ## Credits
 
-* **Traders Reality Library** - PVSRA engine, ADR/AWR/AMR calculations, pivot drawing, psychological levels: [TradersReality/Traders_Reality_Lib](https://www.tradingview.com/script/TradersReality/)
+* **Traders Reality Library** - PVSRA engine, ADR/AWR/AMR calculations, pivot drawing, psychological levels: [TradersReality/Traders_Reality_Lib](https://www.tradingview.com/script/8zgJTM9u-Traders-Reality-Lib/)
 * **Steve Mauro - Beat the Market Maker (BTMM)** - session box structure, M Levels, ADR/AWR/AMR range methodology, key level framework
 * **Version:** Pine Script v6
