@@ -1,6 +1,6 @@
 # PVSRA × BTMM Suite
 
-![Indicator Preview](https://www.tradingview.com/x/mShofwzR/)
+![Indicator Preview](https://www.tradingview.com/x/1fNqSWco/)
 
 ## Sources
 
