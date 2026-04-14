@@ -143,24 +143,22 @@ bool isIntradayOrDailyTimeframe = isIntradayTimeframe or timeframe.isdaily
 bool isNewDay = ta.change(dayStartTime) != 0
 bool isNewWeek = ta.change(time('W')) != 0
 bool inRegularTradingHours = not na(time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE))
-bool isNewRegularTradingHoursSession = inRegularTradingHours and not inRegularTradingHours[1]
+bool isNewREGULAR_TRADING_HOURS_SESSION = inRegularTradingHours and not inRegularTradingHours[1]
 
 int pivotAndMLevelsStart = useCurrentDayStart ? dayStartTime :
  dayStartTime - 86400 * 1000
 
-if isNewRegularTradingHoursSession
+if isNewREGULAR_TRADING_HOURS_SESSION
     currentSessionStart := regularTradingHoursSessionStart
     currentSessionEnd := timestamp(
         NEW_YORK_TIMEZONE,
         year(regularTradingHoursSessionStart, NEW_YORK_TIMEZONE),
         month(regularTradingHoursSessionStart, NEW_YORK_TIMEZONE),
-        dayofmonth(regularTradingHoursSessionStart,NEW_YORK_TIMEZONE), 
-        16, 
-        0
+        dayofmonth(regularTradingHoursSessionStart,NEW_YORK_TIMEZONE), 16, 0
     )
 
-int currentDayMidpoint = na(dayStartTime) or na(dayEndTime) ? na :
- math.round((dayStartTime + dayEndTime) / 2)
+int currentDayMidpoint = na(currentSessionStart) or na(currentSessionEnd) ? na :
+ math.round((currentSessionStart + currentSessionEnd) / 2)
 
 int sessionDay = na(currentSessionStart) ? na : dayofweek(currentSessionStart, NEW_YORK_TIMEZONE)
 
@@ -427,7 +425,7 @@ if not showDayLabelsNow
             label.delete(array.get(daySeparatorLabelsArray, i))
         array.clear(daySeparatorLabelsArray)
 
-if showDayLabelsNow and isNewRegularTradingHoursSession and not na(currentDayMidpoint)
+if showDayLabelsNow and isNewREGULAR_TRADING_HOURS_SESSION and not na(currentDayMidpoint)
     newDayLabel = label.new(
          currentDayMidpoint,
          dayLabelY,
@@ -435,7 +433,7 @@ if showDayLabelsNow and isNewRegularTradingHoursSession and not na(currentDayMid
          xloc = xloc.bar_time,
          yloc = yloc.price,
          style = label.style_none,
-         size = size.small,
+         size = size.tiny,
          textcolor = dayLabelColor)
     array.push(daySeparatorLabelsArray, newDayLabel)
 
@@ -550,9 +548,9 @@ bool showAsiaSession = input.bool(group = 'Market session: Asia (Intraday Only)'
 string asianSessionLabelText = input.string(group = 'Market session: Asia (Intraday Only)', defval = 'Asia', title = 'Name:', inline = 'asiastyle')
 color asianSessionBoxColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Box Color', defval = color.rgb(190, 190, 190, 75), inline = 'asiastyle')
 color asianSessionTextColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'asiastyle')
-string asianSessionTimeRaw = f_extendSession(input.session(group = 'Market session: Asia (Intraday Only)', defval = '2100-0500', title = 'Time (UTC+0):', inline = 'asiastyle'))
+string asianSessionTimeRaw = f_extendSession(input.session(group = 'Market session: Asia (Intraday Only)', defval = '1700-0000', title = 'Time (ET):', inline = 'asiastyle'))
 string asianSessionTime = showMarketSessionsOnWeekends ? asianSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
-bool showAsianSessionMidLine = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Show Mid Line', inline = 'asiamid')
+bool showAsianSessionMidLine = input.bool(group = 'Market session: Asia (Intraday Only)', defval = true, title = 'Show Mid Line', inline = 'asiamid')
 color asianSessionMidLineColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Mid Line Color', defval = color.gray, inline = 'asiamid')
 string asianSessionMidLineStyleX = input.string(group = 'Market session: Asia (Intraday Only)', defval = DASHED, title = 'Style', options = [DOTTED, DASHED, SOLID], inline = 'asiamid')
 string asianSessionMidLineStyle = f_resolveLineStyle(asianSessionMidLineStyleX)
@@ -798,7 +796,7 @@ trLib.drawPivot(
 )
 
 bool showPsychologicalLevelsOnSupportedMinuteCharts = isMinuteChart and (timeframe.multiplier == 60 or timeframe.multiplier == 30 or timeframe.multiplier == 15 or timeframe.multiplier == 5 or timeframe.multiplier == 3 or timeframe.multiplier == 1)
-bool showPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Level', inline = 'psyconf') and showPsychologicalLevelsOnSupportedMinuteCharts
+bool showPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Levels', inline = 'psyconf') and showPsychologicalLevelsOnSupportedMinuteCharts
 bool showPsychologicalLevelLabels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Level Labels', inline = 'psyconf', tooltip = 'The psycological High/Low will only show on these timeframes: 1h/30min/15min/5min/3min/1min. It is disabled on all others. This is because the calculation requires a candle to start at the correct time for Sydney/Tokyo but in other timeframes the data does not have values at the designated time for the Sydney/Tokyo sessions.') and showPsychologicalLevels
 bool showAllHistoricalPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Historical Psycological Levels', inline = 'psyconf') and showPsychologicalLevels
 color psychologicalLevelHighColor = input.color(group = 'Weekly Psycological Levels (Intraday Only)', title = 'Psycological High Color', defval = color(#ff9800), inline = 'psyconf1')
@@ -1237,7 +1235,7 @@ f_sessionHLBox(
     asianSessionBoxColor,
     asianSessionTextColor,
     asianSessionLabelText,
-    GMT_0,
+    NEW_YORK_TIMEZONE,
     showAsianSessionMidLine,
     asianSessionMidLineColor,
     asianSessionMidLineStyle
