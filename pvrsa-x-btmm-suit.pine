@@ -157,8 +157,8 @@ if isNewREGULAR_TRADING_HOURS_SESSION
         dayofmonth(regularTradingHoursSessionStart,NEW_YORK_TIMEZONE), 16, 0
     )
 
-int currentDayMidpoint = na(currentSessionStart) or na(currentSessionEnd) ? na :
- math.round((currentSessionStart + currentSessionEnd) / 2)
+int currentDayMidpoint = na(dayStartTime) or na(dayEndTime) ? na :
+ math.round((dayStartTime + dayEndTime) / 2)
 
 int sessionDay = na(currentSessionStart) ? na : dayofweek(currentSessionStart, NEW_YORK_TIMEZONE)
 
@@ -796,7 +796,7 @@ trLib.drawPivot(
 )
 
 bool showPsychologicalLevelsOnSupportedMinuteCharts = isMinuteChart and (timeframe.multiplier == 60 or timeframe.multiplier == 30 or timeframe.multiplier == 15 or timeframe.multiplier == 5 or timeframe.multiplier == 3 or timeframe.multiplier == 1)
-bool showPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Levels', inline = 'psyconf') and showPsychologicalLevelsOnSupportedMinuteCharts
+bool showPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Level', inline = 'psyconf') and showPsychologicalLevelsOnSupportedMinuteCharts
 bool showPsychologicalLevelLabels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Level Labels', inline = 'psyconf', tooltip = 'The psycological High/Low will only show on these timeframes: 1h/30min/15min/5min/3min/1min. It is disabled on all others. This is because the calculation requires a candle to start at the correct time for Sydney/Tokyo but in other timeframes the data does not have values at the designated time for the Sydney/Tokyo sessions.') and showPsychologicalLevels
 bool showAllHistoricalPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Historical Psycological Levels', inline = 'psyconf') and showPsychologicalLevels
 color psychologicalLevelHighColor = input.color(group = 'Weekly Psycological Levels (Intraday Only)', title = 'Psycological High Color', defval = color(#ff9800), inline = 'psyconf1')
