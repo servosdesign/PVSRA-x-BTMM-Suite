@@ -550,7 +550,7 @@ color asianSessionBoxColor = input.color(group = 'Market session: Asia (Intraday
 color asianSessionTextColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'asiastyle')
 string asianSessionTimeRaw = f_extendSession(input.session(group = 'Market session: Asia (Intraday Only)', defval = '2100-0500', title = 'Time (UTC+0):', inline = 'asiastyle'))
 string asianSessionTime = showMarketSessionsOnWeekends ? asianSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
-bool showAsianSessionMidLine = input.bool(group = 'Market session: Asia (Intraday Only)', defval = true, title = 'Show Mid Line', inline = 'asiamid')
+bool showAsianSessionMidLine = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Show Mid Line', inline = 'asiamid')
 color asianSessionMidLineColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Mid Line Color', defval = color.gray, inline = 'asiamid')
 string asianSessionMidLineStyleX = input.string(group = 'Market session: Asia (Intraday Only)', defval = DASHED, title = 'Style', options = [DOTTED, DASHED, SOLID], inline = 'asiamid')
 string asianSessionMidLineStyle = f_resolveLineStyle(asianSessionMidLineStyleX)
