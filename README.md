@@ -4,7 +4,7 @@
 
 ## Sources
 
-* **Traders Reality PVSRA Library:** [https://www.tradingview.com/script/TradersReality/](https://www.tradingview.com/script/TradersReality/)
+* **Traders Reality PVSRA Library:** [https://www.tradingview.com/script/8zgJTM9u-Traders-Reality-Lib/](https://www.tradingview.com/script/8zgJTM9u-Traders-Reality-Lib/)
 * **Steve Mauro - Beat the Market Maker (BTMM):** [https://beatthemarketmaker.com/](https://beatthemarketmaker.com/)
 
 ## Overview
