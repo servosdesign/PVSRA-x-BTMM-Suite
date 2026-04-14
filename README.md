@@ -1,6 +1,6 @@
 # PVSRA × BTMM Suite
 
-![Indicator Preview](EURUSD_2026-04-13_20-20-25_137f5.png)
+![Indicator Preview](https://www.tradingview.com/x/mShofwzR/)
 
 ## Sources
 
