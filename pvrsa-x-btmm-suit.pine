@@ -544,7 +544,7 @@ bool showSessionMetrics = sessionMetricDisplayMode != 'Off'
 string sessionMetricType = sessionMetricDisplayMode
 bool sessionMetricsAllowedTf = isSecondsChart ? true : isMinuteChart ? timeframe.multiplier <= maxSessionMetricTfMinutes : false
 
-bool showAsiaSession = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Show Session', inline = 'asiaconf') and showMarketSessions
+bool showAsiaSession = input.bool(group = 'Market session: Asia (Intraday Only)', defval = true, title = 'Show Session', inline = 'asiaconf') and showMarketSessions
 string asianSessionLabelText = input.string(group = 'Market session: Asia (Intraday Only)', defval = 'Asia', title = 'Name:', inline = 'asiastyle')
 color asianSessionBoxColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Box Color', defval = color.rgb(190, 190, 190, 75), inline = 'asiastyle')
 color asianSessionTextColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'asiastyle')
