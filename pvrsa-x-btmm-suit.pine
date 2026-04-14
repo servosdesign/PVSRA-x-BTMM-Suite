@@ -552,8 +552,9 @@ string asianSessionTimeRaw = f_extendSession(input.session(group = 'Market sessi
 string asianSessionTime = showMarketSessionsOnWeekends ? asianSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 bool showAsianSessionMidLine = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Show Mid Line', inline = 'asiamid')
 color asianSessionMidLineColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Mid Line Color', defval = color.gray, inline = 'asiamid')
-string asianSessionMidLineStyleX = input.string(group = 'Market session: Asia (Intraday Only)', defval = DASHED, title = 'Style', options = [DOTTED, DASHED, SOLID], inline = 'asiamid')
+string asianSessionMidLineStyleX = input.string(group = 'Market session: Asia (Intraday Only)', defval = DOTTED, title = 'Style', options = [DOTTED, DASHED, SOLID], inline = 'asiamid')
 string asianSessionMidLineStyle = f_resolveLineStyle(asianSessionMidLineStyleX)
+bool extendAsianSessionMidLine = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Extend Mid Line Right', inline = 'asiamid')
 
 bool showEuBrinksSession = input.bool(group = 'Market session: EU Brinks (Intraday Only)', defval = true, title = 'Show Session', inline = 'eubrinksconf') and showMarketSessions
 string euBrinksSessionLabelText = input.string(group = 'Market session: EU Brinks (Intraday Only)', defval = 'EU Brinks', title = 'Name:', inline = 'eubrinksstyle')
@@ -859,7 +860,8 @@ f_sessionHLBox(
     string tz,
     bool showMidLine,
     color midLineColor,
-    string midLineStyle
+    string midLineStyle,
+    bool extendMidLine
 ) =>
     var box sessionBox = na
     var label sessionLabel = na
@@ -928,7 +930,11 @@ f_sessionHLBox(
         sessionHigh := na
         sessionLow := na
         sessionOpen := na
-        sessionMidLine := na
+        if not extendMidLine
+            sessionMidLine := na
+
+    if not inSession and not na(sessionMidLine) and extendMidLine
+        line.set_x2(sessionMidLine, bar_index)
 
 if barstate.islast
     if showDailyOpenLine and isIntradayTimeframe and not showHistoricalDailyOpenLines
@@ -1238,7 +1244,8 @@ f_sessionHLBox(
     NEW_YORK_TIMEZONE,
     showAsianSessionMidLine,
     asianSessionMidLineColor,
-    asianSessionMidLineStyle
+    asianSessionMidLineStyle,
+    extendAsianSessionMidLine
     )
 
 f_sessionHLBox(
@@ -1250,7 +1257,8 @@ f_sessionHLBox(
     londonTimeZone,
     false,
     euBrinksSessionTextColor,
-    DASHED_LINE_STYLE
+    DASHED_LINE_STYLE,
+    false
 )
 
 f_sessionHLBox(
@@ -1262,7 +1270,8 @@ f_sessionHLBox(
     londonTimeZone,
     false,
     londonSessionTextColor,
-    DASHED_LINE_STYLE
+    DASHED_LINE_STYLE,
+    false
 )
 
 f_sessionHLBox(
@@ -1274,7 +1283,8 @@ f_sessionHLBox(
     newYorkTimeZone,
     false,
     usBrinksSessionTextColor,
-    DASHED_LINE_STYLE
+    DASHED_LINE_STYLE,
+    false
 )
 
 f_sessionHLBox(
@@ -1286,7 +1296,8 @@ f_sessionHLBox(
     newYorkTimeZone,
     false,
     newYorkSessionTextColor,
-    DASHED_LINE_STYLE
+    DASHED_LINE_STYLE,
+    false
 )
 
 if barstate.islast and not showAllHistoricalPsychologicalLevels and showPsychologicalLevels
