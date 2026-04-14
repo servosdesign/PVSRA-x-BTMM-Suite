@@ -1,0 +1,1305 @@
+//@version=6
+indicator(title = 'PVSRA × BTMM Suite', shorttitle = 'PVRSAxBTMM', overlay = true, scale = scale.none, max_bars_back = 300, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+import TradersReality/Traders_Reality_Lib/2 as trLib
+
+const int EMA_5_LENGTH = 5
+const int EMA_13_LENGTH = 13
+const int EMA_50_LENGTH = 50
+const int EMA_200_LENGTH = 200
+const int EMA_800_LENGTH = 800
+const int ONE_WEEK_IN_MILLISECONDS = 7 * 24 * 60 * 60 * 1000
+const string EMA_5_LABEL = '5 EMA'
+const string EMA_13_LABEL = '13 EMA'
+const string EMA_50_LABEL = '50 EMA'
+const string EMA_200_LABEL = '200 EMA'
+const string EMA_800_LABEL = '800 EMA'
+const string FOREX = 'forex'
+const string PIPS = 'pips'
+const string TICKS = 'ticks'
+const string RANGE_METRIC = 'Range'
+const string CURRENCY_METRIC = 'Currency'
+const string JPY_TICKER = 'JPY'
+const string REGULAR_TRADING_HOURS_SESSION = '0930-1600'
+const string NEW_YORK_TIMEZONE = 'America/New_York'
+const string DOTTED = 'Dotted'
+const string DASHED = 'Dashed'
+const string SOLID = 'Solid'
+const string DASHED_LINE_STYLE = line.style_dashed
+const string DOTTED_LINE_STYLE = line.style_dotted
+const string SOLID_LINE_STYLE = line.style_solid
+const string ALL_DAYS_SESSION_SUFFIX = ':1234567'
+const string WEEKDAYS_ONLY_SESSION_SUFFIX = ':23456'
+const string GMT_0 = 'GMT+0'
+const string GMT_1 = 'GMT+1'
+const string DAILY_TIMEFRAME = 'D'
+const string PIVOT_TAG = 'Pivot'
+const string PIVOT_RESISTANCE_1_TAG = 'R1'
+const string PIVOT_RESISTANCE_2_TAG = 'R2'
+const string PIVOT_RESISTANCE_3_TAG = 'R3'
+const string PIVOT_SUPPORT_1_TAG = 'S1'
+const string PIVOT_SUPPORT_2_TAG = 'S2'
+const string PIVOT_SUPPORT_3_TAG = 'S3'
+const string M_LEVEL_0_TAG = 'M0'
+const string M_LEVEL_1_TAG = 'M1'
+const string M_LEVEL_2_TAG = 'M2'
+const string M_LEVEL_3_TAG = 'M3'
+const string M_LEVEL_4_TAG = 'M4'
+const string M_LEVEL_5_TAG = 'M5'
+const string DAILY_OPEN_LABEL = 'Open'
+const string PDH_LABEL = 'PDH'
+const string PDL_LABEL = 'PDL'
+const string PWH_LABEL = 'PWH'
+const string PWL_LABEL = 'PWL'
+const string ADR_HIGH_LABEL = 'ADR High'
+const string ADR_LOW_LABEL = 'ADR Low'
+const string ADR_50_HIGH_LABEL = '50% ADR High'
+const string ADR_50_LOW_LABEL = '50% ADR Low'
+const string ADR_RANGE_PREFIX = 'ADR = '
+const string ADR_3X_PREFIX = '3 x ADR = '
+const string ADR_50_RANGE_PREFIX = '50% ADR = '
+const string AWR_HIGH_LABEL = 'AWR High'
+const string AWR_LOW_LABEL = 'AWR Low'
+const string AWR_50_HIGH_LABEL = '50% AWR High'
+const string AWR_50_LOW_LABEL = '50% AWR Low'
+const string AWR_RANGE_PREFIX = 'AWR = '
+const string AWR_3X_PREFIX = '3 x AWR = '
+const string AWR_50_RANGE_PREFIX = '50% AWR = '
+const string AMR_HIGH_LABEL = 'Hi-AMR'
+const string AMR_LOW_LABEL = 'Lo-AMR'
+const string AMR_50_HIGH_LABEL = '50% Hi-AMR'
+const string AMR_50_LOW_LABEL = '50% Lo-AMR'
+const string AMR_RANGE_PREFIX = 'AMR = '
+const string AMR_3X_PREFIX = '3 x AMR = '
+const string AMR_50_RANGE_PREFIX = '50% AMR = '
+const string DAILY_OPEN_SUFFIX = '(DO)'
+const string WEEKLY_OPEN_SUFFIX = '(WO)'
+const string MONTHLY_OPEN_SUFFIX = '(MO)'
+
+var int currentSessionStart = na
+var int currentSessionEnd = na
+var line dailyOpenLine = na
+var line previousDayHighLine = na
+var line previousDayLowLine = na
+var line previousWeekHighLine = na
+var line previousWeekLowLine = na
+var line adrHighLine = na
+var line adrLowLine = na
+var line adr50HighLine = na
+var line adr50LowLine = na
+var line awrHighLine = na
+var line awrLowLine = na
+var line awr50HighLine = na
+var line awr50LowLine = na
+var line amrHighLine = na
+var line amrLowLine = na
+var line amr50HighLine = na
+var line amr50LowLine = na
+var line psychologicalHighLine = na
+var line psychologicalLowLine = na
+var label dailyOpenLabel = na
+var label previousDayHighLabel = na
+var label previousDayLowLabel = na
+var label previousWeekHighLabel = na
+var label previousWeekLowLabel = na
+var label adrHighLabel = na
+var label adrLowLabel = na
+var label adr50HighLabel = na
+var label adr50LowLabel = na
+var label adrRangeLabel = na
+var label adr50RangeLabel = na
+var label awrHighLabel = na
+var label awrLowLabel = na
+var label awr50HighLabel = na
+var label awrLow50Label = na
+var label awrRangeLabel = na
+var label awr50RangeLabel = na
+var label amrHighLabel = na
+var label amrLowLabel = na
+var label amr50HighLabel = na
+var label amr50LowLabel = na
+var label amrRangeLabel = na
+var label amr50RangeLabel = na
+
+int labelXOffset = time_close * timeframe.multiplier * 60 * 1000
+int dayStartTime = time(DAILY_TIMEFRAME)
+int dayEndTime = time_close(DAILY_TIMEFRAME)
+int separatorReferenceTime = last_bar_time
+int regularTradingHoursSessionStart = time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE)
+int pivotAndMLabelsXOffset = time_close * timeframe.multiplier * 60 * 1000
+float ema5 = ta.ema(close, EMA_5_LENGTH)
+float ema13 = ta.ema(close, EMA_13_LENGTH)
+float ema50 = ta.ema(close, EMA_50_LENGTH)
+float ema200 = ta.ema(close, EMA_200_LENGTH)
+float ema800 = ta.ema(close, EMA_800_LENGTH)
+float dailyOpenPrice = trLib.getdayOpen()
+float visibleLabelBase = ta.highest(high, 300)
+float dayLabelY = visibleLabelBase + math.max(ta.atr(14) * 0.25, syminfo.mintick * 20)
+bool isMinuteChart = timeframe.isminutes
+bool isSecondsChart = timeframe.isseconds
+bool useCurrentDayStart = isSecondsChart or (isMinuteChart and timeframe.multiplier < 5)
+bool isIntradayVisibleTimeframe = isMinuteChart and timeframe.multiplier <= 240 and timeframe.multiplier >= 1
+bool isIntradayTimeframe = timeframe.isintraday
+bool isIntradayOrDailyTimeframe = isIntradayTimeframe or timeframe.isdaily
+bool isNewDay = ta.change(dayStartTime) != 0
+bool isNewWeek = ta.change(time('W')) != 0
+bool inRegularTradingHours = not na(time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE))
+bool isNewREGULAR_TRADING_HOURS_SESSION = inRegularTradingHours and not inRegularTradingHours[1]
+
+int pivotAndMLevelsStart = useCurrentDayStart ? dayStartTime :
+ dayStartTime - 86400 * 1000
+
+if isNewREGULAR_TRADING_HOURS_SESSION
+    currentSessionStart := regularTradingHoursSessionStart
+    currentSessionEnd := timestamp(
+        NEW_YORK_TIMEZONE,
+        year(regularTradingHoursSessionStart, NEW_YORK_TIMEZONE),
+        month(regularTradingHoursSessionStart, NEW_YORK_TIMEZONE),
+        dayofmonth(regularTradingHoursSessionStart,NEW_YORK_TIMEZONE), 16, 0
+    )
+
+int currentDayMidpoint = na(currentSessionStart) or na(currentSessionEnd) ? na :
+ math.round((currentSessionStart + currentSessionEnd) / 2)
+
+int sessionDay = na(currentSessionStart) ? na : dayofweek(currentSessionStart, NEW_YORK_TIMEZONE)
+
+string currencySymbol = syminfo.currency == 'USD' ? '$' :
+     syminfo.currency == 'EUR' ? '€' :
+     syminfo.currency == 'GBP' ? '£' : ''
+
+f_securityWithRepaintControl(string _symbol, string _res, series float _src, bool _repaint) =>
+    request.security(_symbol, _res, _src[_repaint ? 0 :
+     barstate.isrealtime ? 1 : 0])[_repaint ? 0 :
+     barstate.isrealtime ? 0 : 1]
+
+float dayClose = f_securityWithRepaintControl(syminfo.tickerid, DAILY_TIMEFRAME, close, false)
+float previousDayHigh = f_securityWithRepaintControl(syminfo.tickerid, DAILY_TIMEFRAME, high, false)
+float previousDayLow = f_securityWithRepaintControl(syminfo.tickerid, DAILY_TIMEFRAME, low, false)
+float previousWeekHigh = f_securityWithRepaintControl(syminfo.tickerid, 'W', high, false)
+float previousWeekLow = f_securityWithRepaintControl(syminfo.tickerid, 'W', low, false)
+
+float pivotPoint = (previousDayHigh + previousDayLow + dayClose) / 3
+float pivotResistanceLevel1 = 2 * pivotPoint - previousDayLow
+float pivotSupportLevel1 = 2 * pivotPoint - previousDayHigh
+float pivotResistanceLevel2 = pivotPoint - pivotSupportLevel1 + pivotResistanceLevel1
+float pivotSupportLevel2 = pivotPoint - pivotResistanceLevel1 + pivotSupportLevel1
+float pivotResistanceLevel3 = 2 * pivotPoint + previousDayHigh - 2 * previousDayLow
+float pivotSupportLevel3 = 2 * pivotPoint - (2 * previousDayHigh - previousDayLow)
+float mLevel0 = (pivotSupportLevel2 + pivotSupportLevel3) / 2
+float mLevel1 = (pivotSupportLevel1 + pivotSupportLevel2) / 2
+float mLevel2 = (pivotPoint + pivotSupportLevel1) / 2
+float mLevel3 = (pivotPoint + pivotResistanceLevel1) / 2
+float mLevel4 = (pivotResistanceLevel1 + pivotResistanceLevel2) / 2
+float mLevel5 = (pivotResistanceLevel2 + pivotResistanceLevel3) / 2
+
+f_extendSession(string session) =>
+    startHour = str.tonumber(str.substring(session, 0, 2))
+    startMinute = str.tonumber(str.substring(session, 2, 4))
+    endHour = str.tonumber(str.substring(session, 5, 7))
+    endMinute = str.tonumber(str.substring(session, 7, 9))
+    timeframeMinute = isMinuteChart ? timeframe.multiplier : 1
+    newEndMinute = endMinute + timeframeMinute
+    newEndHour = endHour + math.floor(newEndMinute / 60)
+    newEndMinute := newEndMinute % 60
+
+    str.format('{0,number,00}{1,number,00}-{2,number,00}{3,number,00}',
+        startHour, startMinute, newEndHour, newEndMinute)
+
+f_formatCurrency(float currency) =>
+    currencySymbol != '' ? currencySymbol + str.tostring(currency, format.mintick) :
+     str.tostring(currency, format.mintick) + ' ' + syminfo.currency
+
+f_formatRangeMetric(float rangeMetric, string displayMode) =>
+    float forexPipSize = str.contains(syminfo.ticker, JPY_TICKER) ? 0.01 : 0.0001
+    float rangeCount = syminfo.type == FOREX ? rangeMetric / forexPipSize : rangeMetric / syminfo.mintick
+    string rangeUnit = syminfo.type == FOREX ? PIPS : TICKS
+    float percent = close != 0 ? rangeMetric / close * 100 : na
+
+    displayMode == RANGE_METRIC ? str.tostring(rangeCount, '#.##') + ' ' + rangeUnit :
+     displayMode == CURRENCY_METRIC ? f_formatCurrency(rangeMetric) :
+     str.tostring(percent, '#.##') + '%'
+
+f_pvsraVolume(string tickerId) =>
+    request.security(tickerId, '', [volume, high, low, close, open], barmerge.gaps_off, barmerge.lookahead_off)
+
+[pvsraVolume, pvsraHigh, pvsraLow, pvsraClose, pvsraOpen] = f_pvsraVolume(syminfo.tickerid)
+
+f_dayName(int day) =>
+    day == dayofweek.monday ? 'Mon' :
+     day == dayofweek.tuesday ? 'Tue' :
+     day == dayofweek.wednesday ? 'Wed' :
+     day == dayofweek.thursday ? 'Thu' :
+     day == dayofweek.friday ? 'Fri' :
+     day == dayofweek.saturday ? 'Sat' : 'Sun'
+
+string dayLabelText = na(sessionDay) ? '' : f_dayName(sessionDay)
+
+f_upsertHorizontalLine(line existingLine, int startTime, float price, color lineColor) =>
+    line resultLine = existingLine
+
+    if na(resultLine)
+        resultLine := line.new(
+            x1 = startTime,
+            y1 = price,
+            x2 = time,
+            y2 = price,
+            xloc = xloc.bar_time,
+            extend = extend.none,
+            color = lineColor
+        )
+    else
+        line.set_xy1(resultLine, startTime, price)
+        line.set_xy2(resultLine, time, price)
+
+    resultLine
+
+f_resolveLineStyle(simple string lineStyle) =>
+    lineStyle == DOTTED ? DOTTED_LINE_STYLE :
+     lineStyle == SOLID ? SOLID_LINE_STYLE :
+      DASHED_LINE_STYLE
+
+f_upsertLine(line existingLine, int x1, float y1, int x2, float y2, color lineColor, simple string lineStyle, simple string lineExtend) =>
+    line result = existingLine
+    if na(result)
+        result := line.new(x1 = x1, y1 = y1, x2 = x2, y2 = y2, xloc = xloc.bar_time, extend = lineExtend, color = lineColor, style = lineStyle)
+
+    else
+        line.set_xy1(result, x1, y1)
+        line.set_xy2(result, x2, y2)
+        line.set_color(result, lineColor)
+        line.set_style(result, lineStyle)
+        line.set_width(result, 1)
+        line.set_extend(result, lineExtend)
+    result
+
+f_upsertLabel(label existingLabel, int x, float y, string labelText, color textColor) =>
+    label result = existingLabel
+    if na(result)
+        result := label.new(x = x, y = y, text = labelText, xloc = xloc.bar_time, yloc = yloc.price, style = label.style_label_up, textcolor = textColor, color = color.new(color.black, 100), size = size.small)
+
+    else
+        label.set_x(result, x)
+        label.set_y(result, y)
+        label.set_text(result, labelText)
+        label.set_textcolor(result, textColor)
+        label.set_style(result, label.style_label_up)
+        label.set_color(result, color.new(color.black, 100))
+        label.set_size(result, size.small)
+    result
+
+bool scaleHelpMessage = input.bool(true, 'Scale Help', group = 'Chart Scaling', tooltip = 'If levels like PWH/PWL, ADR, AWR, or AMR compress the chart, right-click the price scale on the right and enable "Scale price chart only".')
+
+color vectorRedCandleColor = input.color(title = 'Vector: Red', group = 'Candle Colors', defval = #FF5252, inline = 'vectorCandles', tooltip = 'Bull bars are green and bear bars are red when the bar is with volume >= 200% of the average volume of the 10 previous bars, or bars where the product of candle spread x candle volume is >= the highest for the 10 previous bars.\nBull bars are blue and bear bars are violet when the bar is with volume >= 150% of the average volume of the 10 previous bars.')
+color vectorGreenCandleColor = input.color(title = 'Vector: Green', group = 'Candle Colors', defval = #00E676, inline = 'vectorCandles')
+color vectorVioletCandleColor = input.color(title = 'Vector: Violet', group = 'Candle Colors', defval = #E040FB, inline = 'vectorCandles')
+color vectorBlueCandleColor = input.color(title = 'Vector: Blue', group = 'Candle Colors', defval = #2962ff, inline = 'vectorCandles')
+color nonVectorUpCandleColor = input.color(title = 'Non-Vector: Up', group = 'Candle Colors', defval = #999999, inline = 'nonVectorCandles')
+color nonVectorDownCandleColor = input.color(title = 'Non-Vector: Down', group = 'Candle Colors', defval = #4d4d4d, inline = 'nonVectorCandles', tooltip = 'Bull bars are light gray and bear bars are dark gray when none of the red/green/blue/violet vector conditions are met.')
+
+[pvsraColor, alertFlag, averageVolume, volumeSpread, highestVolumeSpread] = trLib.calcPvsra(
+    pvsraVolume,
+    pvsraHigh,
+    pvsraLow,
+    pvsraClose,
+    pvsraOpen,
+    vectorRedCandleColor,
+    vectorGreenCandleColor,
+    vectorVioletCandleColor,
+    vectorBlueCandleColor,
+    nonVectorDownCandleColor,
+    nonVectorUpCandleColor
+)
+
+barcolor(pvsraColor)
+[newYorkDSTActive, londonDSTActive, sydneyDSTActive] = trLib.calcDst()
+
+string londonTimeZone = londonDSTActive ? GMT_1 : GMT_0
+string newYorkTimeZone = newYorkDSTActive ? GMT_1 : GMT_0
+bool showEma5 = input.bool(group = 'EMA Lines', title = '5', defval = true, inline = 'emaToggles')
+bool showEma13 = input.bool(group = 'EMA Lines', title = '13', defval = true, inline = 'emaToggles')
+bool showEma50 = input.bool(group = 'EMA Lines', title = '50', defval = true, inline = 'emaToggles')
+bool showEma200 = input.bool(group = 'EMA Lines', title = '200', defval = true, inline = 'emaToggles')
+bool showEma800 = input.bool(group = 'EMA Lines', title = '800', defval = true, inline = 'emaToggles')
+color ema5Color = input.color(group = 'EMA Lines', title = '5', defval = color(#feea4a), inline = 'emaColors')
+color ema13Color = input.color(group = 'EMA Lines', title = '13', defval = color(#fd5457), inline = 'emaColors')
+color ema50Color = input.color(group = 'EMA Lines', title = '50', defval = color(#3ee145), inline = 'emaColors')
+color ema200Color = input.color(group = 'EMA Lines', title = '200', defval = color(#7c6db0), inline = 'emaColors')
+color ema800Color = input.color(group = 'EMA Lines', title = '800', defval = color(color.rgb(155, 198, 248)), inline = 'emaColors')
+
+if showEma5
+    trLib.rLabel(ema5, EMA_5_LABEL, label.style_none, ema5Color, false, labelXOffset)
+if showEma13
+    trLib.rLabel(ema13, EMA_13_LABEL, label.style_none, ema13Color, false, labelXOffset)
+if showEma50
+    trLib.rLabel(ema50, EMA_50_LABEL, label.style_none, ema50Color, false, labelXOffset)
+if showEma200
+    trLib.rLabel(ema200, EMA_200_LABEL, label.style_none, ema200Color, false, labelXOffset)
+if showEma800
+    trLib.rLabel(ema800, EMA_800_LABEL, label.style_none, ema800Color, false, labelXOffset)
+
+plot(showEma5 ? ema5 : na, color = ema5Color, title = EMA_5_LABEL)
+plot(showEma13 ? ema13 : na, color = ema13Color, title = EMA_13_LABEL)
+plot(showEma50 ? ema50 : na, color = ema50Color, title = EMA_50_LABEL)
+plot(showEma200 ? ema200 : na, color = ema200Color, title = EMA_200_LABEL)
+plot(showEma800 ? ema800 : na, color = ema800Color, title = EMA_800_LABEL)
+
+bool showDailyOpenLine = input.bool(group = 'Daily Open (Intraday Only)', defval = true, title = 'Show Line', inline = 'dopenconf') and isMinuteChart
+bool showDailyOpenLabel = input.bool(group = 'Daily Open (Intraday Only)', defval = true, title = 'Show Label', inline = 'dopenconf') and showDailyOpenLine and isMinuteChart
+bool showHistoricalDailyOpenLines = input.bool(group = 'Daily Open (Intraday Only)', defval = false, title = 'Show Historical Daily Opens', inline = 'dopenconf')
+color dailyOpenColor = input.color(group = 'Daily Open (Intraday Only)', title = 'Daily Open Color', defval = color.new(#ba6d99, 50), inline = 'dopenconf1')
+bool extendDailyOpenLine = input.bool(group = 'Daily Open (Intraday Only)', title = 'Extend Line in Both Directions', defval = false, inline = 'dopenconf2')
+string dailyOpenLineExtend = extendDailyOpenLine ? extend.both : extend.none
+float dailyOpenPlotValue = showDailyOpenLine and showHistoricalDailyOpenLines ? dailyOpenPrice : na
+
+plot(
+    dailyOpenPlotValue,
+    color = dailyOpenColor,
+    style = plot.style_stepline,
+    linewidth = 1,
+    editable = false,
+    title = 'Open'
+)
+
+bool showPreviousDayHighLow = input.bool(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Show PDH/PDL Lines', defval = true, inline = 'highlow', tooltip = 'PDH/PDL show only on intraday timeframes, whereas PWH/PWL show up to the daily timeframe.')
+color previousDayHighLowColor = input.color(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Daily Color', defval = color.new(color.blue, 50), inline = 'highlow2')
+string previousDayHighLowStyleX = input.string(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Daily Style', defval = DASHED, options = [DOTTED, DASHED, SOLID], inline = 'highlow2')
+string previousDayHighLowStyle = f_resolveLineStyle(previousDayHighLowStyleX)
+bool showPreviousWeekHighLow = input.bool(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Show PWH/PWL Lines', defval = true, inline = 'highlow')
+color previousWeekHighLowColor = input.color(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Weekly Color', defval = color.new(color.green, 50), inline = 'highlow3')
+string previousWeekHighLowStyleX = input.string(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Weekly Style', defval = DASHED, options = [DOTTED, DASHED, SOLID], inline = 'highlow3')
+string previousWeekHighLowStyle = f_resolveLineStyle(previousWeekHighLowStyleX)
+bool showPreviousDayHighLowLabels = input.bool(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Show Labels', defval = true, inline = 'highlow')
+bool extendPreviousDayLines  = input.bool(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Extend PDH/PDL Lines in Both Directions', defval = false, inline = 'highlow4')
+bool extendPreviousWeekLines  = input.bool(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Extend PWH/PWL Lines in Both Directions', defval = false, inline = 'highlow5')
+string previousDayLineExtend = extendPreviousDayLines ? extend.both : extend.none
+string previousWeekLineExtend = extendPreviousWeekLines ? extend.both : extend.none
+
+bool showDaySeparators = input.bool(true, 'Show Day Separators', group = 'Time Separators')
+bool showDaySeparatorLabels = input.bool(true, 'Show Day Labels', group = 'Time Separators')
+color daySeparatorColor = input.color(color.new(color.gray, 70), 'Day Line Color', group = 'Time Separators', inline = 'daysep')
+string daySeparatorStyleInput = input.string(DASHED, 'Day Line Style', options = [DOTTED, DASHED, SOLID], group = 'Time Separators', inline = 'daysep')
+int  daySeparatorWidth = input.int(1, 'Day Line Width', minval = 1, maxval = 5, group = 'Time Separators', inline = 'daysep')
+bool showWeekSeparators = input.bool(true, 'Show Week Separators', group = 'Time Separators')
+color weekSeparatorColor = input.color(color.new(color.blue, 60), 'Week Line Color', group = 'Time Separators', inline = 'weeksep')
+string weekSeparatorStyleInput = input.string(DASHED, 'Week Line Style', options = [DOTTED, DASHED, SOLID], group = 'Time Separators', inline = 'weeksep')
+int weekSeparatorWidth = input.int(2, 'Week Line Width', minval = 1, maxval = 5, group = 'Time Separators', inline = 'weeksep')
+color dayLabelColor = input.color(color.gray, 'Day Label Color', group = 'Time Separators')
+int separatorLookbackWeeks = input.int(3, 'Lookback (weeks)', minval = 1, maxval = 52, group = 'Time Separators')
+int maxSeparatorLineTimeframeInMinutes = input.int(240, 'Hide Separator Lines Above Timeframe (min)', minval = 1, maxval = 1439, group = 'Time Separators')
+int maxSeparatorLabelTimeframeInMinutes = input.int(60, 'Hide Day Labels Above Timeframe (min)', minval = 1, maxval = 1439, group = 'Time Separators')
+string daySeparatorStyle = f_resolveLineStyle(daySeparatorStyleInput)
+string weekSeparatorStyle = f_resolveLineStyle(weekSeparatorStyleInput)
+int lookbackStartTime = separatorReferenceTime - separatorLookbackWeeks * ONE_WEEK_IN_MILLISECONDS
+bool isInLookbackWindow = time >= lookbackStartTime
+
+bool separatorLinesAllowedTf = isSecondsChart ? true :
+ isMinuteChart ? timeframe.multiplier <= maxSeparatorLineTimeframeInMinutes :
+  false
+
+bool separatorLabelsAllowedTf = isSecondsChart ? true :
+ isMinuteChart ? timeframe.multiplier <= maxSeparatorLabelTimeframeInMinutes :
+  false
+
+bool showDaySeparatorLinesNow = timeframe.isintraday and isInLookbackWindow and separatorLinesAllowedTf and showDaySeparators
+bool showWeekSeparatorLinesNow = timeframe.isintraday and isInLookbackWindow and separatorLinesAllowedTf and showWeekSeparators
+bool showDayLabelsNow = timeframe.isintraday and isInLookbackWindow and separatorLabelsAllowedTf and showDaySeparatorLabels
+
+var array<line> daySeparatorLinesArray = array.new<line>()
+var array<line> weekSeparatorLinesArray = array.new<line>()
+var array<label> daySeparatorLabelsArray = array.new<label>()
+
+if not showDaySeparatorLinesNow
+    if array.size(daySeparatorLinesArray) > 0
+        for i = 0 to array.size(daySeparatorLinesArray) - 1 by 1
+            line.delete(array.get(daySeparatorLinesArray, i))
+        array.clear(daySeparatorLinesArray)
+
+if not showWeekSeparatorLinesNow
+    if array.size(weekSeparatorLinesArray) > 0
+        for i = 0 to array.size(weekSeparatorLinesArray) - 1 by 1
+            line.delete(array.get(weekSeparatorLinesArray, i))
+        array.clear(weekSeparatorLinesArray)
+
+if not showDayLabelsNow
+    if array.size(daySeparatorLabelsArray) > 0
+        for i = 0 to array.size(daySeparatorLabelsArray) - 1 by 1
+            label.delete(array.get(daySeparatorLabelsArray, i))
+        array.clear(daySeparatorLabelsArray)
+
+if showDayLabelsNow and isNewREGULAR_TRADING_HOURS_SESSION and not na(currentDayMidpoint)
+    newDayLabel = label.new(
+         currentDayMidpoint,
+         dayLabelY,
+         dayLabelText,
+         xloc = xloc.bar_time,
+         yloc = yloc.price,
+         style = label.style_none,
+         size = size.tiny,
+         textcolor = dayLabelColor)
+    array.push(daySeparatorLabelsArray, newDayLabel)
+
+if showDaySeparatorLinesNow and isNewDay and not isNewWeek
+    newDayLine = line.new(
+         time, low, time, high,
+         xloc = xloc.bar_time,
+         extend = extend.both,
+         color = daySeparatorColor,
+         style = daySeparatorStyle,
+         width = daySeparatorWidth)
+    array.push(daySeparatorLinesArray, newDayLine)
+
+if showWeekSeparatorLinesNow and isNewWeek
+    line.new(
+         time, low, time, high,
+         xloc = xloc.bar_time,
+         extend = extend.both,
+         color = weekSeparatorColor,
+         style = weekSeparatorStyle,
+         width = weekSeparatorWidth)
+
+if barstate.islast
+    if array.size(daySeparatorLabelsArray) > 0
+        for i = 0 to array.size(daySeparatorLabelsArray) - 1 by 1
+            existingDayLabel = array.get(daySeparatorLabelsArray, i)
+            label.set_y(existingDayLabel, dayLabelY)
+
+bool showADR = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Show ADR Line', defval = true, inline = 'adr')
+bool showDailyOpenADR = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Use Daily Open for ADR Calculation', defval = false, inline = 'adr', tooltip = 'Measure the ADR from the daily open. This will make the ADR static throughout the day. ADR is usually measured taking today High / Low. Since todays High / Low will change throughout the day, some might prefer to have a static range instead.')
+bool showADRLabels = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Show ADR Labels', defval = true, inline = 'adr1')
+bool showADR50 = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Show 50% ADR Lines and Labels', defval = false, inline = 'adr1')
+string adrMetricDisplayMode = input.string(RANGE_METRIC, 'ADR Range Metrics', options = ['Off', RANGE_METRIC, CURRENCY_METRIC, 'Percent'], group = 'Average Daily Range - ADR (intraday only)', inline = 'adr1')
+int adrRange = input.int(group = 'Average Daily Range - ADR (intraday only)', title = 'ADR Length (days)', defval = 14, minval = 1, maxval = 31, step = 1, inline = 'adr2', tooltip = 'Defaults taken from MT4. This defines how many days back to take into consideration when calculating the ADR')
+color adrColor = input.color(group = 'Average Daily Range - ADR (intraday only)', title = 'ADR Color', defval = color(#5f9ea0), inline = 'adr3')
+string adrStyleX = input.string(group = 'Average Daily Range - ADR (intraday only)', defval = SOLID, title = 'ADR Line Style', options = [DOTTED, DASHED, SOLID], inline = 'adr3')
+bool extendADRLines = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Extend ADR Lines in Both Directions', defval = false, inline = 'adr4')
+string adrLineExtend = extendADRLines ? extend.both : extend.none
+string adrStyle = f_resolveLineStyle(adrStyleX)
+
+[dailyADRValue, dailyADRHighLevel, dailyADRLowLevel] =
+ request.security(
+    syminfo.tickerid,
+    DAILY_TIMEFRAME,
+    trLib.adrHiLo(adrRange, 1, showDailyOpenADR),
+    lookahead = barmerge.lookahead_on
+)
+
+float dailyADR50HighLevel = dailyADRHighLevel - dailyADRValue / 2
+float dailyADR50LowLevel = dailyADRLowLevel + dailyADRValue / 2
+bool showADRMetrics = adrMetricDisplayMode != 'Off'
+
+bool showAWR = input.bool(group = 'Average Weekly Range - AWR (intraday only)', title = 'Show AWR Line', defval = false, inline = 'awr')
+bool showWeeklyOpenAWR = input.bool(group = 'Average Weekly Range - AWR (intraday only)', title = 'Use Weekly Open for AWR Calculation', defval = false, inline = 'awr', tooltip = 'Measure the AWR from the weekly open. This will make the AWR static throughout the week. AWR is usually measured taking this weeks High / Low. Since this weeks High / Low will change throughout the week, some might prefer to have a static range instead.')
+bool showAWRLabels = input.bool(group = 'Average Weekly Range - AWR (intraday only)', title = 'Show AWR Labels', defval = false, inline = 'awr1')
+bool showAWR50 = input.bool(group = 'Average Weekly Range - AWR (intraday only)', title = 'Show 50% AWR Lines and Labels', defval = false, inline = 'awr1')
+string awrMetricDisplayMode = input.string(RANGE_METRIC, 'AWR Range Metrics', options = ['Off', RANGE_METRIC, CURRENCY_METRIC, 'Percent'], group = 'Average Weekly Range - AWR (intraday only)', inline = 'awr1')
+int awrRange = input.int(group = 'Average Weekly Range - AWR (intraday only)', title = 'AWR length (weeks)', defval = 4, minval = 1, maxval = 52, step = 1, inline = 'awr2', tooltip = 'Defaults taken from MT4. This defines how many weeks back to take into consideration when calculating the AWR')
+color awrColor = input.color(group = 'Average Weekly Range - AWR (intraday only)', title = 'AWR Color', defval = color.rgb(84, 123, 130), inline = 'awr3')
+string awrStyleX = input.string(group = 'Average Weekly Range - AWR (intraday only)', defval = SOLID, title = 'AWR Line Style', options = [DOTTED, DASHED, SOLID], inline = 'awr3')
+bool extendAWRLines  = input.bool(group = 'Average Weekly Range - AWR (intraday only)', title = 'Extend AWR Lines in Both Directions', defval = false, inline = 'awr4')
+string awrLineExtend = extendAWRLines ? extend.both : extend.none
+
+string awrStyle = f_resolveLineStyle(awrStyleX)
+
+[weeklyAWRValue, weeklyAWRHighLevel, weeklyAWRLowLevel] =
+ request.security(
+    syminfo.tickerid,
+    'W',
+    trLib.adrHiLo(awrRange, 1, showWeeklyOpenAWR),
+    lookahead = barmerge.lookahead_on
+)
+
+float weeklyAWR50HighLevel = weeklyAWRHighLevel - weeklyAWRValue / 2
+float weeklyAWR50LowLevel = weeklyAWRLowLevel + weeklyAWRValue / 2
+bool showAWRMetrics = awrMetricDisplayMode != 'Off'
+
+bool showAMR = input.bool(group = 'Average Monthly Range - AMR (Intraday Only)', title = 'Show AMR Line', defval = false, inline = 'amr')
+bool showMonthlyOpenAMR = input.bool(group = 'Average Monthly Range - AMR (Intraday Only)', title = 'Use Monthly Open for AMR Calculation', defval = false, inline = 'amr', tooltip = 'Measure the AMR from the monthly open. This will make the AMR static throughout the month. AMR is usually measured taking this months High / Low. Since this months High / Low will change throughout the month, some might prefer to have a static range instead.')
+bool showAMRLabels = input.bool(group = 'Average Monthly Range - AMR (Intraday Only)', title = 'Show AMR Labels', defval = false, inline = 'amr1')
+bool showAMR50 = input.bool(group = 'Average Monthly Range - AMR (Intraday Only)', title = 'Show 50% AMR Lines and Labels', defval = false, inline = 'amr1')
+string amrMetricDisplayMode = input.string(RANGE_METRIC, 'AMR Range Metrics', options = ['Off', RANGE_METRIC, CURRENCY_METRIC, 'Percent'], group = 'Average Monthly Range - AMR (Intraday Only)', inline = 'amr1')
+int amrRange = input.int(group = 'Average Monthly Range - AMR (Intraday Only)', title = 'AMR length (months)', defval = 6, minval = 1, maxval = 12, step = 1, inline = 'amr2', tooltip = 'Defaults taken from MT4. This defines how many months back to take into consideration when calculating the AMR')
+color amrColor = input.color(group = 'Average Monthly Range - AMR (Intraday Only)', title = 'AMR Color', defval = color.rgb(57, 90, 100), inline = 'amr3')
+string amrStyleX = input.string(group = 'Average Monthly Range - AMR (Intraday Only)', defval = SOLID, title = 'AMR Line Style', options = [DOTTED, DASHED, SOLID], inline = 'amr3')
+bool extendAMRLines = input.bool(group = 'Average Monthly Range - AMR (Intraday Only)', title = 'Extend AMR Lines in Both Directions', defval = false, inline = 'amr4')
+string amrLineExtend = extendAMRLines ? extend.both : extend.none
+string amrStyle = f_resolveLineStyle(amrStyleX)
+
+[monthlyAMRValue, monthlyAMRHighLevel, monthlyAMRLowLevel] =
+ request.security(
+    syminfo.tickerid,
+    'M',
+    trLib.adrHiLo(amrRange, 1, showMonthlyOpenAMR),
+    lookahead = barmerge.lookahead_on
+)
+
+float monthlyAMR50HighLevel = monthlyAMRHighLevel - monthlyAMRValue / 2
+float monthlyAMR50LowLevel = monthlyAMRLowLevel + monthlyAMRValue / 2
+bool showAMRMetrics = amrMetricDisplayMode != 'Off'
+
+bool showMarketSessions = input.bool(true, group = 'Market sessions (Intraday Only)', title = 'Show Market Sessions') and isIntradayVisibleTimeframe
+bool showMarketSessionLabels = input.bool(false, group = 'Market sessions (Intraday Only)', title = 'Show Market Session Labels')
+bool showMarketSessionsOnWeekends = input.bool(false, group = 'Market sessions (Intraday Only)', title = 'Show Market Sessions on Weekends', tooltip = 'Turn on or off market sessions in the weekends. Note do not turn this on for exchanges that dont have weekend data like OANDA') and isIntradayVisibleTimeframe
+string sessionMetricDisplayMode = input.string(RANGE_METRIC, 'Session Metrics', options = ['Off', RANGE_METRIC, CURRENCY_METRIC, 'Percent'], group = 'Market sessions (Intraday Only)', inline = 'sessmetrics')
+int maxSessionMetricTfMinutes = input.int(15, 'Hide Session Range Labels Above Timeframe (min)', minval = 1, maxval = 1439, group = 'Market sessions (Intraday Only)', inline = 'sessmetrics')
+bool showSessionMetrics = sessionMetricDisplayMode != 'Off'
+string sessionMetricType = sessionMetricDisplayMode
+bool sessionMetricsAllowedTf = isSecondsChart ? true : isMinuteChart ? timeframe.multiplier <= maxSessionMetricTfMinutes : false
+
+bool showAsiaSession = input.bool(group = 'Market session: Asia (Intraday Only)', defval = true, title = 'Show Session', inline = 'asiaconf') and showMarketSessions
+string asianSessionLabelText = input.string(group = 'Market session: Asia (Intraday Only)', defval = 'Asia', title = 'Name:', inline = 'asiastyle')
+color asianSessionBoxColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Box Color', defval = color.rgb(190, 190, 190, 75), inline = 'asiastyle')
+color asianSessionTextColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'asiastyle')
+string asianSessionTimeRaw = f_extendSession(input.session(group = 'Market session: Asia (Intraday Only)', defval = '2100-0500', title = 'Time (UTC+0):', inline = 'asiastyle'))
+string asianSessionTime = showMarketSessionsOnWeekends ? asianSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
+bool showAsianSessionMidLine = input.bool(group = 'Market session: Asia (Intraday Only)', defval = true, title = 'Show Mid Line', inline = 'asiamid')
+color asianSessionMidLineColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Mid Line Color', defval = color.gray, inline = 'asiamid')
+string asianSessionMidLineStyleX = input.string(group = 'Market session: Asia (Intraday Only)', defval = DASHED, title = 'Style', options = [DOTTED, DASHED, SOLID], inline = 'asiamid')
+string asianSessionMidLineStyle = f_resolveLineStyle(asianSessionMidLineStyleX)
+
+bool showEuBrinksSession = input.bool(group = 'Market session: EU Brinks (Intraday Only)', defval = true, title = 'Show Session', inline = 'eubrinksconf') and showMarketSessions
+string euBrinksSessionLabelText = input.string(group = 'Market session: EU Brinks (Intraday Only)', defval = 'EU Brinks', title = 'Name:', inline = 'eubrinksstyle')
+color euBrinksSessionBoxColor = input.color(group = 'Market session: EU Brinks (Intraday Only)', title = 'Box Color', defval = color.rgb(176, 196, 222, 30), inline = 'eubrinksstyle')
+color euBrinksSessionTextColor = input.color(group = 'Market session: EU Brinks (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'eubrinksstyle')
+string euBrinksSessionTimeRaw = f_extendSession(input.session(group = 'Market session: EU Brinks (Intraday Only)', defval = '0800-0900', title = 'Time (UTC+0):', inline = 'eubrinksstyle'))
+string euBrinksSessionTime = showMarketSessionsOnWeekends ? euBrinksSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : euBrinksSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
+
+bool showLondonSession = input.bool(group = 'Market session: London (Intraday Only)', defval = true, title = 'Show Session', inline = 'londonconf') and showMarketSessions
+string londonSessionLabelText = input.string(group = 'Market session: London (Intraday Only)', defval = 'London', title = 'Name:', inline = 'londonstyle')
+color londonSessionBoxColor = input.color(group = 'Market session: London (Intraday Only)', title = 'Box Color', defval = color.rgb(247, 248, 173, 75), inline = 'londonstyle')
+color londonSessionTextColor = input.color(group = 'Market session: London (Intraday Only)', title = 'Text Color', defval = color.yellow, inline = 'londonstyle')
+string londonSessionTimeRaw = f_extendSession(input.session(group = 'Market session: London (Intraday Only)', defval = '0800-1700', title = 'Time (UTC+0):', inline = 'londonstyle'))
+string londonSessionTime = showMarketSessionsOnWeekends ? londonSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : londonSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
+
+bool showUsBrinksSession = input.bool(group = 'Market session: US Brinks (Intraday Only)', defval = true, title = 'Show Session', inline = 'usbrinksconf') and showMarketSessions
+string usBrinksSessionLabelText = input.string(group = 'Market session: US Brinks (Intraday Only)', defval = 'US Brinks', title = 'Name:', inline = 'usbrinksstyle')
+color usBrinksSessionBoxColor = input.color(group = 'Market session: US Brinks (Intraday Only)', title = 'Box Color', defval = color.rgb(176, 196, 222, 30), inline = 'usbrinksstyle')
+color usBrinksSessionTextColor = input.color(group = 'Market session: US Brinks (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'usbrinksstyle')
+string usBrinksSessionTimeRaw = f_extendSession(input.session(group = 'Market session: US Brinks (Intraday Only)', defval = '1400-1500', title = 'Time (UTC+0):', inline = 'usbrinksstyle'))
+string usBrinksSessionTime = showMarketSessionsOnWeekends ? usBrinksSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : usBrinksSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
+
+bool showNewYorkSession = input.bool(group = 'Market session: New York (Intraday Only)', defval = true, title = 'Show Session', inline = 'nyconf') and showMarketSessions
+string newYorkSessionLabelText = input.string(group = 'Market session: New York (Intraday Only)', defval = 'New York', title = 'Name:', inline = 'nystyle')
+color newYorkSessionBoxColor = input.color(group = 'Market session: New York (Intraday Only)', title = 'Box Color', defval = color.rgb(255, 173, 187, 75), inline = 'nystyle')
+color newYorkSessionTextColor = input.color(group = 'Market session: New York (Intraday Only)', title = 'Text Color', defval = color.rgb(255, 161, 173), inline = 'nystyle')
+string newYorkSessionInputTime = f_extendSession(input.session(group = 'Market session: New York (Intraday Only)', defval = '1430-1800', title = 'Time (UTC+0):', inline = 'nystyle'))
+string newYorkSessionTime = showMarketSessionsOnWeekends ? newYorkSessionInputTime + ALL_DAYS_SESSION_SUFFIX : newYorkSessionInputTime + WEEKDAYS_ONLY_SESSION_SUFFIX
+
+bool showPivotPoint = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Pivot Point', defval = false)
+bool showPivotLabels = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Pivot Point Label', defval = false)
+color pivotColor = input.color(group = 'Pivot Points (intraday only)', title = 'Pivot Point Line Color', defval = color(#bdb76b), inline = 'pivotcolors')
+color pivotLabelColor = input.color(group = 'Pivot Points (intraday only)', title = 'Pivot Point Label Color', defval = color(#bdb76b), inline = 'pivotcolors')
+bool showLevelOnePivotPoints = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Level 1 Resistance and Support Lines', defval = false, inline = 'pivotlevels')
+bool showLevelTwoPivotPoints = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Level 2 Resistance and Support Lines', defval = false, inline = 'pivotlevels')
+bool showLevelThreePivotPoints = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Level 3 Resistance and Support Lines', defval = false, inline = 'pivotlevels')
+string resistanceAndSupportLineStyleX = input.string(group = 'Pivot Points (intraday only)', defval = DASHED, title = 'Resistance and Support Levels Line Style', options = [DOTTED, DASHED, SOLID], inline = 'pivotcolorsRS')
+color pivotResistanceColor = input.color(group = 'Pivot Points (intraday only)', title = 'Resistance Line Color', defval = color(#fd5457), inline = 'pivotrscustom')
+color pivotSupportColor = input.color(group = 'Pivot Points (intraday only)', title = 'Support Line Color', defval = color(#3ee145), inline = 'pivotrscustom')
+bool extendPivots = input.bool(group = 'Pivot Points (intraday only)', title = 'Extend Lines in Both Directions', defval = false)
+string resistanceAndSupportLineStyle = f_resolveLineStyle(resistanceAndSupportLineStyleX)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showPivotPoint ? pivotPoint : na,
+    DAILY_TIMEFRAME,
+    PIVOT_TAG,
+    pivotColor,
+    pivotLabelColor,
+    resistanceAndSupportLineStyle,
+    1,
+    extendPivots ? extend.both : extend.right,
+    showPivotPoint and showPivotLabels and isIntradayTimeframe,
+    isIntradayTimeframe, pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showLevelOnePivotPoints ? pivotResistanceLevel1 : na,
+    DAILY_TIMEFRAME,
+    PIVOT_RESISTANCE_1_TAG,
+    pivotResistanceColor,
+    pivotResistanceColor,
+    resistanceAndSupportLineStyle,
+    1,
+    extendPivots ? extend.both : extend.right,
+    showLevelOnePivotPoints and showPivotLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showLevelOnePivotPoints ? pivotSupportLevel1 : na,
+    DAILY_TIMEFRAME,
+    PIVOT_SUPPORT_1_TAG,
+    color(pivotSupportColor),
+    color(pivotSupportColor),
+    resistanceAndSupportLineStyle,
+    1,
+    extendPivots ? extend.both : extend.right,
+    showLevelOnePivotPoints and showPivotLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showLevelTwoPivotPoints ? pivotResistanceLevel2 : na,
+    DAILY_TIMEFRAME,
+    PIVOT_RESISTANCE_2_TAG,
+    pivotResistanceColor,
+    pivotResistanceColor,
+    resistanceAndSupportLineStyle,
+    1,
+    extendPivots ? extend.both : extend.right,
+    showLevelTwoPivotPoints and showPivotLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showLevelTwoPivotPoints ? pivotSupportLevel2 : na,
+    DAILY_TIMEFRAME,
+    PIVOT_SUPPORT_2_TAG,
+    color(pivotSupportColor),
+    color(pivotSupportColor),
+    resistanceAndSupportLineStyle,
+    1,
+    extendPivots ? extend.both : extend.right,
+    showLevelTwoPivotPoints and showPivotLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showLevelThreePivotPoints ? pivotResistanceLevel3 : na,
+    DAILY_TIMEFRAME,
+    PIVOT_RESISTANCE_3_TAG,
+    pivotResistanceColor,
+    pivotResistanceColor,
+    resistanceAndSupportLineStyle,
+    1,
+    extendPivots ? extend.both : extend.right,
+    showLevelThreePivotPoints and showPivotLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showLevelThreePivotPoints ? pivotSupportLevel3 : na,
+    DAILY_TIMEFRAME,
+    PIVOT_SUPPORT_3_TAG,
+    color(pivotSupportColor),
+    color(pivotSupportColor),
+    resistanceAndSupportLineStyle,
+    1,
+    extendPivots ? extend.both : extend.right,
+    showLevelThreePivotPoints and showPivotLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+bool showMLevels = input.bool(group = 'M Levels (intraday only)', title = 'Show M Levels', defval = false, inline = 'mlevels')
+bool showMLabels = input.bool(group = 'M Levels (intraday only)', title = 'Show M Levels Labels', defval = false, inline = 'mlevels')
+color mLevelsColor = input.color(group = 'M Levels (intraday only)', title = 'M Levels Label Color', defval = color(#000000), inline = 'mLevelsColors1')
+color mLevelsLabelColor = input.color(group = 'M Levels (intraday only)', title = 'M Levels Label', defval = color(#000000), inline = 'mLevelsColors1')
+string mLevelsStyleX = input.string(group = 'M Levels (intraday only)', defval = DASHED, title = 'M Levels Line Style', options = [DOTTED, DASHED, SOLID], inline = 'mLevelsColors2')
+bool extendMLevels = input.bool(group = 'M Levels (intraday only)', title = 'Extend Lines in Both Directions', defval = false)
+string mLevelsStyle = f_resolveLineStyle(mLevelsStyleX)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showMLevels ? mLevel0 : na,
+    DAILY_TIMEFRAME,
+    M_LEVEL_0_TAG,
+    mLevelsColor,
+    mLevelsLabelColor,
+    mLevelsStyle, 1, extendMLevels ? extend.both : extend.right,
+    showMLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showMLevels ? mLevel1 : na,
+    DAILY_TIMEFRAME,
+    M_LEVEL_1_TAG,
+    mLevelsColor,
+    mLevelsLabelColor,
+    mLevelsStyle,
+    1,
+    extendMLevels ? extend.both : extend.right,
+    showMLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showMLevels ? mLevel2 : na,
+    DAILY_TIMEFRAME,
+    M_LEVEL_2_TAG,
+    mLevelsColor,
+    mLevelsLabelColor,
+    mLevelsStyle,
+    1,
+    extendMLevels ? extend.both : extend.right,
+    showMLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showMLevels ? mLevel3 : na,
+    DAILY_TIMEFRAME,
+    M_LEVEL_3_TAG,
+    mLevelsColor,
+    mLevelsLabelColor,
+    mLevelsStyle,
+    1,
+    extendMLevels ? extend.both : extend.right,
+    showMLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showMLevels ? mLevel4 : na,
+    DAILY_TIMEFRAME,
+    M_LEVEL_4_TAG,
+    mLevelsColor,
+    mLevelsLabelColor, mLevelsStyle,
+    1,
+    extendMLevels ? extend.both : extend.right,
+    showMLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+trLib.drawPivot(
+    isIntradayTimeframe and showMLevels ? mLevel5 : na,
+    DAILY_TIMEFRAME,
+    M_LEVEL_5_TAG,
+    mLevelsColor,
+    mLevelsLabelColor,
+    mLevelsStyle,
+    1,
+    extendMLevels ? extend.both : extend.right,
+    showMLabels and isIntradayTimeframe,
+    isIntradayTimeframe,
+    pivotAndMLevelsStart,
+    pivotAndMLabelsXOffset
+)
+
+bool showPsychologicalLevelsOnSupportedMinuteCharts = isMinuteChart and (timeframe.multiplier == 60 or timeframe.multiplier == 30 or timeframe.multiplier == 15 or timeframe.multiplier == 5 or timeframe.multiplier == 3 or timeframe.multiplier == 1)
+bool showPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Levels', inline = 'psyconf') and showPsychologicalLevelsOnSupportedMinuteCharts
+bool showPsychologicalLevelLabels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Level Labels', inline = 'psyconf', tooltip = 'The psycological High/Low will only show on these timeframes: 1h/30min/15min/5min/3min/1min. It is disabled on all others. This is because the calculation requires a candle to start at the correct time for Sydney/Tokyo but in other timeframes the data does not have values at the designated time for the Sydney/Tokyo sessions.') and showPsychologicalLevels
+bool showAllHistoricalPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Historical Psycological Levels', inline = 'psyconf') and showPsychologicalLevels
+color psychologicalLevelHighColor = input.color(group = 'Weekly Psycological Levels (Intraday Only)', title = 'Psycological High Color', defval = color(#ff9800), inline = 'psyconf1')
+color psychologicalLevelLowColor = input.color(group = 'Weekly Psycological Levels (Intraday Only)', title = 'Psycological Low Color', defval = color(#ff9800), inline = 'psyconf1')
+
+[psychologicalLevelHigh, psychologicalLevelLow, psychologicalHighLabelText, psychologicalLowLabelText, psychologicalSessionStartTime] =
+ trLib.calcPsyLevels(
+    ONE_WEEK_IN_MILLISECONDS,
+    showPsychologicalLevels,
+    FOREX,
+    sydneyDSTActive
+)
+
+trLib.rLabelLastBar(
+    psychologicalLevelHigh,
+    psychologicalHighLabelText,
+    label.style_none,
+    psychologicalLevelHighColor,
+    showPsychologicalLevelLabels,
+    labelXOffset
+)
+
+trLib.rLabelLastBar(
+    psychologicalLevelLow,
+    psychologicalLowLabelText,
+    label.style_none,
+    psychologicalLevelLowColor,
+    showPsychologicalLevelLabels,
+    labelXOffset
+)
+
+plot(
+    showPsychologicalLevelsOnSupportedMinuteCharts and
+     showPsychologicalLevels and
+      showAllHistoricalPsychologicalLevels ? psychologicalLevelHigh : na,
+    color = psychologicalLevelHighColor,
+    style = plot.style_stepline,
+    linewidth = 1,
+    editable = false,
+    title = 'Psy High'
+)
+
+plot(
+    showPsychologicalLevelsOnSupportedMinuteCharts and
+     showPsychologicalLevels and
+      showAllHistoricalPsychologicalLevels ? psychologicalLevelLow : na,
+    color = psychologicalLevelLowColor,
+    style = plot.style_stepline,
+    linewidth = 1,
+    editable = false,
+    title = 'Psy Low'
+)
+
+f_sessionHLBox(
+    bool enabled,
+    string sessTime,
+    color boxColor,
+    color labelColor,
+    string labelText,
+    string tz,
+    bool showMidLine,
+    color midLineColor,
+    string midLineStyle
+) =>
+    var box sessionBox = na
+    var label sessionLabel = na
+    var label metricLabel = na
+    var line sessionMidLine = na
+    var float sessionHigh = na
+    var float sessionLow = na
+    var float sessionOpen = na
+
+    bool inSession = enabled and not na(time_close(timeframe.period, sessTime, tz))
+
+    if inSession and not inSession[1]
+        sessionHigh := high
+        sessionLow := low
+        sessionOpen := open
+        sessionBox := box.new(bar_index, high, bar_index, low, bgcolor = boxColor, border_color = boxColor)
+        sessionLabel := showMarketSessionLabels ? label.new(bar_index, high, labelText, style = label.style_none, textcolor = labelColor, size = size.small, yloc = yloc.price) : na
+        metricLabel := showSessionMetrics and sessionMetricsAllowedTf ? label.new(bar_index, low, '', style = label.style_label_up, textcolor = color.new(labelColor, 0), color = color.new(boxColor, 100), size = size.small, yloc = yloc.price) : na
+
+        if showMidLine
+            midY = (sessionHigh + sessionLow) / 2.0
+            sessionMidLine := line.new(x1 = bar_index, y1 = midY, x2 = bar_index, y2 = midY, color = midLineColor, style = midLineStyle, width = 1)
+
+    if inSession and not na(sessionBox)
+        sessionHigh := math.max(sessionHigh, high)
+        sessionLow := math.min(sessionLow, low)
+        box.set_top(sessionBox, sessionHigh)
+        box.set_bottom(sessionBox, sessionLow)
+        box.set_right(sessionBox, bar_index)
+        sessionRange = sessionHigh - sessionLow
+        sessionMove = close - sessionOpen
+        percent = sessionOpen != 0 ? sessionRange / sessionOpen * 100 : na
+        forexPipSize = str.contains(syminfo.ticker, JPY_TICKER) ? 0.01 : 0.0001
+        rangeCount = syminfo.type == FOREX ? sessionRange / forexPipSize : sessionRange / syminfo.mintick
+        rangeUnit = syminfo.type == FOREX ? PIPS : TICKS
+
+        metricText = sessionMetricType == RANGE_METRIC ? str.tostring(rangeCount, '#.##') + ' ' + rangeUnit :
+         sessionMetricType == CURRENCY_METRIC ? f_formatCurrency(sessionRange) :
+          str.tostring(percent, '#.##') + '%'
+
+        midX = math.round((box.get_left(sessionBox) + box.get_right(sessionBox)) / 2.0)
+        topOffset = math.max(sessionRange * 0.02, syminfo.mintick * 8)
+        bottomOffset = 0
+
+        if not na(sessionLabel)
+            label.set_x(sessionLabel, midX)
+            label.set_y(sessionLabel, sessionHigh + topOffset)
+            label.set_textalign(sessionLabel, text.align_center)
+            label.set_size(sessionLabel, size.normal)
+
+        if not na(metricLabel)
+            label.set_text(metricLabel, metricText)
+            label.set_x(metricLabel, midX)
+            label.set_y(metricLabel, sessionLow - bottomOffset)
+            label.set_textalign(metricLabel, text.align_center)
+            label.set_size(metricLabel, size.normal)
+
+        if showMidLine and not na(sessionMidLine)
+            midY = (sessionHigh + sessionLow) / 2.0
+            line.set_xy1(sessionMidLine, box.get_left(sessionBox), midY)
+            line.set_xy2(sessionMidLine, bar_index, midY)
+            line.set_color(sessionMidLine, midLineColor)
+            line.set_style(sessionMidLine, midLineStyle)
+
+    if not inSession and inSession[1]
+        sessionHigh := na
+        sessionLow := na
+        sessionOpen := na
+        sessionMidLine := na
+
+if barstate.islast
+    if showDailyOpenLine and isIntradayTimeframe and not showHistoricalDailyOpenLines
+        dailyOpenLine := f_upsertLine(dailyOpenLine, dayStartTime, dailyOpenPrice, dayEndTime, dailyOpenPrice, dailyOpenColor, SOLID_LINE_STYLE, dailyOpenLineExtend)
+        if showDailyOpenLabel
+            dailyOpenLabel := f_upsertLabel(dailyOpenLabel, dayEndTime, dailyOpenPrice, DAILY_OPEN_LABEL, dailyOpenColor)
+        else
+            if not na(dailyOpenLabel)
+                label.delete(dailyOpenLabel)
+                dailyOpenLabel := na
+    else
+        if not na(dailyOpenLine)
+            line.delete(dailyOpenLine)
+            dailyOpenLine := na
+        if not na(dailyOpenLabel)
+            label.delete(dailyOpenLabel)
+            dailyOpenLabel := na
+
+    if isIntradayTimeframe and showPreviousDayHighLow
+        previousDayHighLine := f_upsertLine(previousDayHighLine, dayStartTime, previousDayHigh, dayEndTime, previousDayHigh, previousDayHighLowColor, previousDayHighLowStyle, previousDayLineExtend)
+        previousDayLowLine := f_upsertLine(previousDayLowLine, dayStartTime, previousDayLow, dayEndTime, previousDayLow, previousDayHighLowColor, previousDayHighLowStyle, previousDayLineExtend)
+    else
+        if not na(previousDayHighLine)
+            line.delete(previousDayHighLine)
+            previousDayHighLine := na
+        if not na(previousDayLowLine)
+            line.delete(previousDayLowLine)
+            previousDayLowLine := na
+
+    if isIntradayTimeframe and showPreviousDayHighLow and showPreviousDayHighLowLabels
+        previousDayHighLabel := f_upsertLabel(previousDayHighLabel, dayEndTime, previousDayHigh, PDH_LABEL, previousDayHighLowColor)
+        previousDayLowLabel := f_upsertLabel(previousDayLowLabel, dayEndTime, previousDayLow, PDL_LABEL, previousDayHighLowColor)
+    else
+        if not na(previousDayHighLabel)
+            label.delete(previousDayHighLabel)
+            previousDayHighLabel := na
+        if not na(previousDayLowLabel)
+            label.delete(previousDayLowLabel)
+            previousDayLowLabel := na
+
+    if isIntradayOrDailyTimeframe and showPreviousWeekHighLow
+        if na(previousWeekHighLine)
+            previousWeekHighLine := line.new(x1 = dayStartTime, y1 = previousWeekHigh, x2 = dayEndTime, y2 = previousWeekHigh, xloc = xloc.bar_time, extend = previousWeekLineExtend, color = previousWeekHighLowColor, style = previousWeekHighLowStyle, width = 1)
+            previousWeekHighLine
+        else
+            line.set_xy1(previousWeekHighLine, dayStartTime, previousWeekHigh)
+            line.set_xy2(previousWeekHighLine, dayEndTime, previousWeekHigh)
+            line.set_color(previousWeekHighLine, previousWeekHighLowColor)
+            line.set_style(previousWeekHighLine, previousWeekHighLowStyle)
+            line.set_width(previousWeekHighLine, 1)
+            line.set_extend(previousWeekHighLine, previousWeekLineExtend)
+            line.set_extend(previousWeekLowLine, previousWeekLineExtend)
+
+        if na(previousWeekLowLine)
+            previousWeekLowLine := line.new(x1 = dayStartTime, y1 = previousWeekLow, x2 = dayEndTime, y2 = previousWeekLow, xloc = xloc.bar_time, extend = previousWeekLineExtend, color = previousWeekHighLowColor, style = previousWeekHighLowStyle, width = 1)
+            previousWeekLowLine
+        else
+            line.set_xy1(previousWeekLowLine, dayStartTime, previousWeekLow)
+            line.set_xy2(previousWeekLowLine, dayEndTime, previousWeekLow)
+            line.set_color(previousWeekLowLine, previousWeekHighLowColor)
+            line.set_style(previousWeekLowLine, previousWeekHighLowStyle)
+            line.set_width(previousWeekLowLine, 1)
+            line.set_extend(previousWeekHighLine, previousWeekLineExtend)
+            line.set_extend(previousWeekLowLine, previousWeekLineExtend)
+    else
+        if not na(previousWeekHighLine)
+            line.delete(previousWeekHighLine)
+            previousWeekHighLine := na
+            previousWeekHighLine
+        if not na(previousWeekLowLine)
+            line.delete(previousWeekLowLine)
+            previousWeekLowLine := na
+            previousWeekLowLine
+
+    if isIntradayOrDailyTimeframe and showPreviousWeekHighLow and showPreviousDayHighLowLabels
+        if na(previousWeekHighLabel)
+            previousWeekHighLabel := label.new(x = dayEndTime, y = previousWeekHigh, text = PWH_LABEL, xloc = xloc.bar_time, yloc = yloc.price, style = label.style_label_up, textcolor = previousWeekHighLowColor, color = color.new(color.black, 100), size = size.small)
+            previousWeekHighLabel
+        else
+            label.set_x(previousWeekHighLabel, dayEndTime)
+            label.set_y(previousWeekHighLabel, previousWeekHigh)
+            label.set_text(previousWeekHighLabel, PWH_LABEL)
+            label.set_textcolor(previousWeekHighLabel, previousWeekHighLowColor)
+            label.set_style(previousWeekHighLabel, label.style_label_up)
+            label.set_color(previousWeekHighLabel, color.new(color.black, 100))
+            label.set_size(previousWeekHighLabel, size.small)
+
+        if na(previousWeekLowLabel)
+            previousWeekLowLabel := label.new(x = dayEndTime, y = previousWeekLow, text = PWL_LABEL, xloc = xloc.bar_time, yloc = yloc.price, style = label.style_label_up, textcolor = previousWeekHighLowColor, color = color.new(color.black, 100), size = size.small)
+            previousWeekLowLabel
+        else
+            label.set_x(previousWeekLowLabel, dayEndTime)
+            label.set_y(previousWeekLowLabel, previousWeekLow)
+            label.set_text(previousWeekLowLabel, PWL_LABEL)
+            label.set_textcolor(previousWeekLowLabel, previousWeekHighLowColor)
+            label.set_style(previousWeekLowLabel, label.style_label_up)
+            label.set_color(previousWeekLowLabel, color.new(color.black, 100))
+            label.set_size(previousWeekLowLabel, size.small)
+    else
+        if not na(previousWeekHighLabel)
+            label.delete(previousWeekHighLabel)
+            previousWeekHighLabel := na
+            previousWeekHighLabel
+        if not na(previousWeekLowLabel)
+            label.delete(previousWeekLowLabel)
+            previousWeekLowLabel := na
+            previousWeekLowLabel
+
+    if showADR and isIntradayTimeframe
+        adrHighLine := f_upsertLine(adrHighLine, dayStartTime, dailyADRHighLevel, dayEndTime, dailyADRHighLevel, adrColor, adrStyle, adrLineExtend)
+        adrLowLine := f_upsertLine(adrLowLine, dayStartTime, dailyADRLowLevel, dayEndTime, dailyADRLowLevel, adrColor, adrStyle, adrLineExtend)
+    else
+        if not na(adrHighLine)
+            line.delete(adrHighLine)
+            adrHighLine := na
+        if not na(adrLowLine)
+            line.delete(adrLowLine)
+            adrLowLine := na
+
+    if showADR and showADR50 and isIntradayTimeframe
+        adr50HighLine := f_upsertLine(adr50HighLine, dayStartTime, dailyADR50HighLevel, dayEndTime, dailyADR50HighLevel, adrColor, adrStyle, adrLineExtend)
+        adr50LowLine := f_upsertLine(adr50LowLine, dayStartTime, dailyADR50LowLevel, dayEndTime, dailyADR50LowLevel, adrColor, adrStyle, adrLineExtend)
+    else
+        if not na(adr50HighLine)
+            line.delete(adr50HighLine)
+            adr50HighLine := na
+        if not na(adr50LowLine)
+            line.delete(adr50LowLine)
+            adr50LowLine := na
+
+    if showADR and isIntradayTimeframe and showADRLabels
+        adrHighLabel := f_upsertLabel(adrHighLabel, dayEndTime, dailyADRHighLevel, ADR_HIGH_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), adrColor)
+        adrLowLabel := f_upsertLabel(adrLowLabel, dayEndTime, dailyADRLowLevel, ADR_LOW_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), adrColor)
+    else
+        if not na(adrHighLabel)
+            label.delete(adrHighLabel)
+            adrHighLabel := na
+        if not na(adrLowLabel)
+            label.delete(adrLowLabel)
+            adrLowLabel := na
+
+    if showADR and showADR50 and isIntradayTimeframe and showADRLabels
+        adr50HighLabel := f_upsertLabel(adr50HighLabel, dayEndTime, dailyADR50HighLevel, ADR_50_HIGH_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), adrColor)
+        adr50LowLabel := f_upsertLabel(adr50LowLabel, dayEndTime, dailyADR50LowLevel, ADR_50_LOW_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), adrColor)
+    else
+        if not na(adr50HighLabel)
+            label.delete(adr50HighLabel)
+            adr50HighLabel := na
+        if not na(adr50LowLabel)
+            label.delete(adr50LowLabel)
+            adr50LowLabel := na
+
+    if showADR and isIntradayTimeframe and showADRLabels and showADRMetrics
+        adrRangeOffset = showADR50 ? math.max(syminfo.mintick * 20, dailyADRValue * 0.02) : 0.0
+        adrMid = (dailyADRHighLevel + dailyADRLowLevel) / 2 + adrRangeOffset
+        adrText = ADR_RANGE_PREFIX + f_formatRangeMetric(dailyADRValue, adrMetricDisplayMode) + '\n' + ADR_3X_PREFIX + f_formatRangeMetric(dailyADRValue * 3, adrMetricDisplayMode)
+        adrRangeLabel := f_upsertLabel(adrRangeLabel, dayEndTime, adrMid, adrText, adrColor)
+    else
+        if not na(adrRangeLabel)
+            label.delete(adrRangeLabel)
+            adrRangeLabel := na
+
+    if showADR and showADR50 and isIntradayTimeframe and showADRLabels and showADRMetrics
+        adrRangeOffset50 = math.max(syminfo.mintick * 10, dailyADRValue * 0.02)
+        adrMid50 = (dailyADR50HighLevel + dailyADR50LowLevel) / 2 - adrRangeOffset50
+        adrText50 = ADR_50_RANGE_PREFIX + f_formatRangeMetric(dailyADRValue / 2, adrMetricDisplayMode)
+        adr50RangeLabel := f_upsertLabel(adr50RangeLabel, dayEndTime, adrMid50, adrText50, adrColor)
+    else
+        if not na(adr50RangeLabel)
+            label.delete(adr50RangeLabel)
+            adr50RangeLabel := na
+
+    if showAWR and isIntradayTimeframe
+        awrHighLine := f_upsertLine(awrHighLine, dayStartTime, weeklyAWRHighLevel, dayEndTime, weeklyAWRHighLevel, awrColor, awrStyle, awrLineExtend)
+        awrLowLine := f_upsertLine(awrLowLine, dayStartTime, weeklyAWRLowLevel, dayEndTime, weeklyAWRLowLevel, awrColor, awrStyle, awrLineExtend)
+    else
+        if not na(awrHighLine)
+            line.delete(awrHighLine)
+            awrHighLine := na
+        if not na(awrLowLine)
+            line.delete(awrLowLine)
+            awrLowLine := na
+
+    if showAWR and showAWR50 and isIntradayTimeframe
+        awr50HighLine := f_upsertLine(awr50HighLine, dayStartTime, weeklyAWR50HighLevel, dayEndTime, weeklyAWR50HighLevel, awrColor, awrStyle, awrLineExtend)
+        awr50LowLine := f_upsertLine(awr50LowLine, dayStartTime, weeklyAWR50LowLevel, dayEndTime, weeklyAWR50LowLevel, awrColor, awrStyle, awrLineExtend)
+    else
+        if not na(awr50HighLine)
+            line.delete(awr50HighLine)
+            awr50HighLine := na
+        if not na(awr50LowLine)
+            line.delete(awr50LowLine)
+            awr50LowLine := na
+
+    if showAWR and isIntradayTimeframe and showAWRLabels
+        awrHighLabel := f_upsertLabel(awrHighLabel, dayEndTime, weeklyAWRHighLevel, AWR_HIGH_LABEL + (showWeeklyOpenAWR ? WEEKLY_OPEN_SUFFIX : ''), awrColor)
+        awrLowLabel := f_upsertLabel(awrLowLabel, dayEndTime, weeklyAWRLowLevel, AWR_LOW_LABEL + (showWeeklyOpenAWR ? WEEKLY_OPEN_SUFFIX : ''), awrColor)
+    else
+        if not na(awrHighLabel)
+            label.delete(awrHighLabel)
+            awrHighLabel := na
+        if not na(awrLowLabel)
+            label.delete(awrLowLabel)
+            awrLowLabel := na
+
+    if showAWR and showAWR50 and isIntradayTimeframe and showAWRLabels
+        awr50HighLabel := f_upsertLabel(awr50HighLabel, dayEndTime, weeklyAWR50HighLevel, AWR_50_HIGH_LABEL + (showWeeklyOpenAWR ? WEEKLY_OPEN_SUFFIX : ''), awrColor)
+        awrLow50Label := f_upsertLabel(awrLow50Label, dayEndTime, weeklyAWR50LowLevel, AWR_50_LOW_LABEL + (showWeeklyOpenAWR ? WEEKLY_OPEN_SUFFIX : ''), awrColor)
+    else
+        if not na(awr50HighLabel)
+            label.delete(awr50HighLabel)
+            awr50HighLabel := na
+        if not na(awrLow50Label)
+            label.delete(awrLow50Label)
+            awrLow50Label := na
+
+    if showAWR and isIntradayTimeframe and showAWRLabels and showAWRMetrics
+        awrRangeOffset = showAWR50 ? math.max(syminfo.mintick * 20, weeklyAWRValue * 0.02) : 0.0
+        awrMid = (weeklyAWRHighLevel + weeklyAWRLowLevel) / 2 + awrRangeOffset
+        awrText = AWR_RANGE_PREFIX + f_formatRangeMetric(weeklyAWRValue, awrMetricDisplayMode) + '\n' + AWR_3X_PREFIX + f_formatRangeMetric(weeklyAWRValue * 3, awrMetricDisplayMode)
+        awrRangeLabel := f_upsertLabel(awrRangeLabel, dayEndTime, awrMid, awrText, awrColor)
+    else
+        if not na(awrRangeLabel)
+            label.delete(awrRangeLabel)
+            awrRangeLabel := na
+
+    if showAWR and showAWR50 and isIntradayTimeframe and showAWRLabels and showAWRMetrics
+        awrRangeOffset50 = math.max(syminfo.mintick * 10, weeklyAWRValue * 0.02)
+        awrMid50 = (weeklyAWR50HighLevel + weeklyAWR50LowLevel) / 2 - awrRangeOffset50
+        awrText50 = AWR_50_RANGE_PREFIX + f_formatRangeMetric(weeklyAWRValue / 2, awrMetricDisplayMode)
+        awr50RangeLabel := f_upsertLabel(awr50RangeLabel, dayEndTime, awrMid50, awrText50, awrColor)
+    else
+        if not na(awr50RangeLabel)
+            label.delete(awr50RangeLabel)
+            awr50RangeLabel := na
+
+    if showAMR and isIntradayTimeframe and isMinuteChart and timeframe.multiplier >= 3
+        amrHighLine := f_upsertLine(amrHighLine, dayStartTime, monthlyAMRHighLevel, dayEndTime, monthlyAMRHighLevel, amrColor, amrStyle, amrLineExtend)
+        amrLowLine := f_upsertLine(amrLowLine, dayStartTime, monthlyAMRLowLevel, dayEndTime, monthlyAMRLowLevel, amrColor, amrStyle, amrLineExtend)
+    else
+        if not na(amrHighLine)
+            line.delete(amrHighLine)
+            amrHighLine := na
+        if not na(amrLowLine)
+            line.delete(amrLowLine)
+            amrLowLine := na
+
+    if showAMR and showAMR50 and isIntradayTimeframe and isMinuteChart and timeframe.multiplier >= 3
+        amr50HighLine := f_upsertLine(amr50HighLine, dayStartTime, monthlyAMR50HighLevel, dayEndTime, monthlyAMR50HighLevel, amrColor, amrStyle, amrLineExtend)
+        amr50LowLine := f_upsertLine(amr50LowLine, dayStartTime, monthlyAMR50LowLevel, dayEndTime, monthlyAMR50LowLevel, amrColor, amrStyle, amrLineExtend)
+    else
+        if not na(amr50HighLine)
+            line.delete(amr50HighLine)
+            amr50HighLine := na
+        if not na(amr50LowLine)
+            line.delete(amr50LowLine)
+            amr50LowLine := na
+
+    if showAMR and isIntradayTimeframe and showAMRLabels and isMinuteChart and timeframe.multiplier >= 3
+        amrHighLabel := f_upsertLabel(amrHighLabel, dayEndTime, monthlyAMRHighLevel, AMR_HIGH_LABEL + (showMonthlyOpenAMR ? MONTHLY_OPEN_SUFFIX : ''), amrColor)
+        amrLowLabel := f_upsertLabel(amrLowLabel, dayEndTime, monthlyAMRLowLevel, AMR_LOW_LABEL + (showMonthlyOpenAMR ? MONTHLY_OPEN_SUFFIX : ''), amrColor)
+    else
+        if not na(amrHighLabel)
+            label.delete(amrHighLabel)
+            amrHighLabel := na
+        if not na(amrLowLabel)
+            label.delete(amrLowLabel)
+            amrLowLabel := na
+
+    if showAMR and showAMR50 and isIntradayTimeframe and showAMRLabels and isMinuteChart and timeframe.multiplier >= 3
+        amr50HighLabel := f_upsertLabel(amr50HighLabel, dayEndTime, monthlyAMR50HighLevel, AMR_50_HIGH_LABEL + (showMonthlyOpenAMR ? MONTHLY_OPEN_SUFFIX : ''), amrColor)
+        amr50LowLabel := f_upsertLabel(amr50LowLabel, dayEndTime, monthlyAMR50LowLevel, AMR_50_LOW_LABEL + (showMonthlyOpenAMR ? MONTHLY_OPEN_SUFFIX : ''), amrColor)
+    else
+        if not na(amr50HighLabel)
+            label.delete(amr50HighLabel)
+            amr50HighLabel := na
+        if not na(amr50LowLabel)
+            label.delete(amr50LowLabel)
+            amr50LowLabel := na
+
+    if showAMR and isIntradayTimeframe and showAMRLabels and showAMRMetrics and isMinuteChart and timeframe.multiplier >= 3
+        amrRangeOffset = showAMR50 ? math.max(syminfo.mintick * 20, monthlyAMRValue * 0.02) : 0.0
+        amrMid = (monthlyAMRHighLevel + monthlyAMRLowLevel) / 2 + amrRangeOffset
+        amrText = AMR_RANGE_PREFIX + f_formatRangeMetric(monthlyAMRValue, amrMetricDisplayMode) + '\n' + AMR_3X_PREFIX + f_formatRangeMetric(monthlyAMRValue * 3, amrMetricDisplayMode)
+        amrRangeLabel := f_upsertLabel(amrRangeLabel, dayEndTime, amrMid, amrText, amrColor)
+    else
+        if not na(amrRangeLabel)
+            label.delete(amrRangeLabel)
+            amrRangeLabel := na
+
+    if showAMR and showAMR50 and isIntradayTimeframe and showAMRLabels and showAMRMetrics and isMinuteChart and timeframe.multiplier >= 3
+        amrRangeOffset50 = math.max(syminfo.mintick * 10, monthlyAMRValue * 0.02)
+        amrMid50 = (monthlyAMR50HighLevel + monthlyAMR50LowLevel) / 2 - amrRangeOffset50
+        amrText50 = AMR_50_RANGE_PREFIX + f_formatRangeMetric(monthlyAMRValue / 2, amrMetricDisplayMode)
+        amr50RangeLabel := f_upsertLabel(amr50RangeLabel, dayEndTime, amrMid50, amrText50, amrColor)
+    else
+        if not na(amr50RangeLabel)
+            label.delete(amr50RangeLabel)
+            amr50RangeLabel := na
+
+f_sessionHLBox(
+    showAsiaSession,
+    asianSessionTime,
+    asianSessionBoxColor,
+    asianSessionTextColor,
+    asianSessionLabelText,
+    GMT_0,
+    showAsianSessionMidLine,
+    asianSessionMidLineColor,
+    asianSessionMidLineStyle
+    )
+
+f_sessionHLBox(
+    showEuBrinksSession,
+    euBrinksSessionTime,
+    euBrinksSessionBoxColor,
+    euBrinksSessionTextColor,
+    euBrinksSessionLabelText,
+    londonTimeZone,
+    false,
+    euBrinksSessionTextColor,
+    DASHED_LINE_STYLE
+)
+
+f_sessionHLBox(
+    showLondonSession,
+    londonSessionTime,
+    londonSessionBoxColor,
+    londonSessionTextColor,
+    londonSessionLabelText,
+    londonTimeZone,
+    false,
+    londonSessionTextColor,
+    DASHED_LINE_STYLE
+)
+
+f_sessionHLBox(
+    showUsBrinksSession,
+    usBrinksSessionTime,
+    usBrinksSessionBoxColor,
+    usBrinksSessionTextColor,
+    usBrinksSessionLabelText,
+    newYorkTimeZone,
+    false,
+    usBrinksSessionTextColor,
+    DASHED_LINE_STYLE
+)
+
+f_sessionHLBox(
+    showNewYorkSession,
+    newYorkSessionTime,
+    newYorkSessionBoxColor,
+    newYorkSessionTextColor,
+    newYorkSessionLabelText,
+    newYorkTimeZone,
+    false,
+    newYorkSessionTextColor,
+    DASHED_LINE_STYLE
+)
+
+if barstate.islast and not showAllHistoricalPsychologicalLevels and showPsychologicalLevels
+    psychologicalHighLine := f_upsertHorizontalLine(
+        psychologicalHighLine,
+        psychologicalSessionStartTime,
+        psychologicalLevelHigh,
+        psychologicalLevelHighColor
+    )
+
+    psychologicalLowLine := f_upsertHorizontalLine(
+        psychologicalLowLine,
+        psychologicalSessionStartTime,
+        psychologicalLevelLow,
+        psychologicalLevelLowColor
+    )
