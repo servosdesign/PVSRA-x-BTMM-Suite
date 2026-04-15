@@ -21,6 +21,12 @@ const string CURRENCY_METRIC = 'Currency'
 const string JPY_TICKER = 'JPY'
 const string REGULAR_TRADING_HOURS_SESSION = '0930-1600'
 const string NEW_YORK_TIMEZONE = 'America/New_York'
+const string LONDON_TIMEZONE = 'Europe/London'
+const string ASIA_SESSION_DEFAULT = '1700-0100'
+const string EU_BRINKS_SESSION_DEFAULT = '0800-0900'
+const string LONDON_SESSION_DEFAULT = '0800-1700'
+const string US_BRINKS_SESSION_DEFAULT = '0900-1000'
+const string NEW_YORK_SESSION_DEFAULT = '0930-1300'
 const string DOTTED = 'Dotted'
 const string DASHED = 'Dashed'
 const string SOLID = 'Solid'
@@ -148,6 +154,10 @@ bool isNewRegularTradingHoursSession = inRegularTradingHours and not inRegularTr
 int pivotAndMLevelsStart = useCurrentDayStart ? dayStartTime :
  dayStartTime - 86400 * 1000
 
+if isNewDay
+    currentSessionStart := na
+    currentSessionEnd := na
+
 if isNewRegularTradingHoursSession
     currentSessionStart := regularTradingHoursSessionStart
     currentSessionEnd := timestamp(
@@ -157,10 +167,13 @@ if isNewRegularTradingHoursSession
         dayofmonth(regularTradingHoursSessionStart,NEW_YORK_TIMEZONE), 16, 0
     )
 
-int currentDayMidpoint = na(currentSessionStart) or na(currentSessionEnd) ? na :
- math.round((currentSessionStart + currentSessionEnd) / 2)
+int currentDayMidpoint = not na(currentSessionStart) and not na(currentSessionEnd) ?
+ math.round((currentSessionStart + currentSessionEnd) / 2) :
+  math.round((dayStartTime + dayEndTime) / 2)
 
-int sessionDay = na(currentSessionStart) ? na : dayofweek(currentSessionStart, NEW_YORK_TIMEZONE)
+int sessionDay = not na(currentSessionStart) ?
+ dayofweek(currentSessionStart, NEW_YORK_TIMEZONE) :
+  dayofweek(dayStartTime, NEW_YORK_TIMEZONE)
 
 string currencySymbol = syminfo.currency == 'USD' ? '$' :
      syminfo.currency == 'EUR' ? '€' :
@@ -312,8 +325,7 @@ color nonVectorDownCandleColor = input.color(title = 'Non-Vector: Down', group =
 barcolor(pvsraColor)
 [newYorkDSTActive, londonDSTActive, sydneyDSTActive] = trLib.calcDst()
 
-string londonTimeZone = londonDSTActive ? GMT_1 : GMT_0
-string newYorkTimeZone = newYorkDSTActive ? GMT_1 : GMT_0
+
 bool showEma5 = input.bool(group = 'EMA Lines', title = '5', defval = true, inline = 'emaToggles')
 bool showEma13 = input.bool(group = 'EMA Lines', title = '13', defval = true, inline = 'emaToggles')
 bool showEma50 = input.bool(group = 'EMA Lines', title = '50', defval = true, inline = 'emaToggles')
@@ -425,7 +437,7 @@ if not showDayLabelsNow
             label.delete(array.get(daySeparatorLabelsArray, i))
         array.clear(daySeparatorLabelsArray)
 
-if showDayLabelsNow and isNewRegularTradingHoursSession and not na(currentDayMidpoint)
+if showDayLabelsNow and isNewDay
     newDayLabel = label.new(
          currentDayMidpoint,
          dayLabelY,
@@ -548,7 +560,7 @@ bool showAsiaSession = input.bool(group = 'Market session: Asia (Intraday Only)'
 string asianSessionLabelText = input.string(group = 'Market session: Asia (Intraday Only)', defval = 'Asia', title = 'Name:', inline = 'asiastyle')
 color asianSessionBoxColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Box Color', defval = color.rgb(190, 190, 190, 75), inline = 'asiastyle')
 color asianSessionTextColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'asiastyle')
-string asianSessionTimeRaw = f_extendSession(input.session(group = 'Market session: Asia (Intraday Only)', defval = '1700-0000', title = 'Time (ET):', inline = 'asiastyle'))
+string asianSessionTimeRaw = f_extendSession(input.session(group = 'Market session: Asia (Intraday Only)', defval = ASIA_SESSION_DEFAULT, title = 'Time (ET):', inline = 'asiastyle'))
 string asianSessionTime = showMarketSessionsOnWeekends ? asianSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 bool showAsianSessionMidLine = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Show Mid Line', inline = 'asiamid')
 color asianSessionMidLineColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Mid Line Color', defval = color.gray, inline = 'asiamid')
@@ -560,28 +572,28 @@ bool showEuBrinksSession = input.bool(group = 'Market session: EU Brinks (Intrad
 string euBrinksSessionLabelText = input.string(group = 'Market session: EU Brinks (Intraday Only)', defval = 'EU Brinks', title = 'Name:', inline = 'eubrinksstyle')
 color euBrinksSessionBoxColor = input.color(group = 'Market session: EU Brinks (Intraday Only)', title = 'Box Color', defval = color.rgb(176, 196, 222, 30), inline = 'eubrinksstyle')
 color euBrinksSessionTextColor = input.color(group = 'Market session: EU Brinks (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'eubrinksstyle')
-string euBrinksSessionTimeRaw = f_extendSession(input.session(group = 'Market session: EU Brinks (Intraday Only)', defval = '0800-0900', title = 'Time (UTC+0):', inline = 'eubrinksstyle'))
+string euBrinksSessionTimeRaw = f_extendSession(input.session(group = 'Market session: EU Brinks (Intraday Only)', defval = EU_BRINKS_SESSION_DEFAULT, title = 'Time (London):', inline = 'eubrinksstyle'))
 string euBrinksSessionTime = showMarketSessionsOnWeekends ? euBrinksSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : euBrinksSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 bool showLondonSession = input.bool(group = 'Market session: London (Intraday Only)', defval = false, title = 'Show Session', inline = 'londonconf') and showMarketSessions
 string londonSessionLabelText = input.string(group = 'Market session: London (Intraday Only)', defval = 'London', title = 'Name:', inline = 'londonstyle')
 color londonSessionBoxColor = input.color(group = 'Market session: London (Intraday Only)', title = 'Box Color', defval = color.rgb(247, 248, 173, 75), inline = 'londonstyle')
 color londonSessionTextColor = input.color(group = 'Market session: London (Intraday Only)', title = 'Text Color', defval = color.yellow, inline = 'londonstyle')
-string londonSessionTimeRaw = f_extendSession(input.session(group = 'Market session: London (Intraday Only)', defval = '0800-1700', title = 'Time (UTC+0):', inline = 'londonstyle'))
+string londonSessionTimeRaw = f_extendSession(input.session(group = 'Market session: London (Intraday Only)', defval = LONDON_SESSION_DEFAULT, title = 'Time (London):', inline = 'londonstyle'))
 string londonSessionTime = showMarketSessionsOnWeekends ? londonSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : londonSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 bool showUsBrinksSession = input.bool(group = 'Market session: US Brinks (Intraday Only)', defval = true, title = 'Show Session', inline = 'usbrinksconf') and showMarketSessions
 string usBrinksSessionLabelText = input.string(group = 'Market session: US Brinks (Intraday Only)', defval = 'US Brinks', title = 'Name:', inline = 'usbrinksstyle')
 color usBrinksSessionBoxColor = input.color(group = 'Market session: US Brinks (Intraday Only)', title = 'Box Color', defval = color.rgb(176, 196, 222, 30), inline = 'usbrinksstyle')
 color usBrinksSessionTextColor = input.color(group = 'Market session: US Brinks (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'usbrinksstyle')
-string usBrinksSessionTimeRaw = f_extendSession(input.session(group = 'Market session: US Brinks (Intraday Only)', defval = '1400-1500', title = 'Time (UTC+0):', inline = 'usbrinksstyle'))
+string usBrinksSessionTimeRaw = f_extendSession(input.session(group = 'Market session: US Brinks (Intraday Only)', defval = US_BRINKS_SESSION_DEFAULT, title = 'Time (ET):', inline = 'usbrinksstyle'))
 string usBrinksSessionTime = showMarketSessionsOnWeekends ? usBrinksSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : usBrinksSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 bool showNewYorkSession = input.bool(group = 'Market session: New York (Intraday Only)', defval = true, title = 'Show Session', inline = 'nyconf') and showMarketSessions
 string newYorkSessionLabelText = input.string(group = 'Market session: New York (Intraday Only)', defval = 'New York', title = 'Name:', inline = 'nystyle')
 color newYorkSessionBoxColor = input.color(group = 'Market session: New York (Intraday Only)', title = 'Box Color', defval = color.rgb(255, 173, 187, 75), inline = 'nystyle')
 color newYorkSessionTextColor = input.color(group = 'Market session: New York (Intraday Only)', title = 'Text Color', defval = color.rgb(255, 161, 173), inline = 'nystyle')
-string newYorkSessionInputTime = f_extendSession(input.session(group = 'Market session: New York (Intraday Only)', defval = '1430-1800', title = 'Time (UTC+0):', inline = 'nystyle'))
+string newYorkSessionInputTime = f_extendSession(input.session(group = 'Market session: New York (Intraday Only)', defval = NEW_YORK_SESSION_DEFAULT, title = 'Time (ET):', inline = 'nystyle'))
 string newYorkSessionTime = showMarketSessionsOnWeekends ? newYorkSessionInputTime + ALL_DAYS_SESSION_SUFFIX : newYorkSessionInputTime + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 bool showPivotPoint = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Pivot Point', defval = false)
@@ -1254,7 +1266,7 @@ f_sessionHLBox(
     euBrinksSessionBoxColor,
     euBrinksSessionTextColor,
     euBrinksSessionLabelText,
-    londonTimeZone,
+    LONDON_TIMEZONE,
     false,
     euBrinksSessionTextColor,
     DASHED_LINE_STYLE,
@@ -1267,7 +1279,7 @@ f_sessionHLBox(
     londonSessionBoxColor,
     londonSessionTextColor,
     londonSessionLabelText,
-    londonTimeZone,
+    LONDON_TIMEZONE,
     false,
     londonSessionTextColor,
     DASHED_LINE_STYLE,
@@ -1280,7 +1292,7 @@ f_sessionHLBox(
     usBrinksSessionBoxColor,
     usBrinksSessionTextColor,
     usBrinksSessionLabelText,
-    newYorkTimeZone,
+    NEW_YORK_TIMEZONE,
     false,
     usBrinksSessionTextColor,
     DASHED_LINE_STYLE,
@@ -1293,7 +1305,7 @@ f_sessionHLBox(
     newYorkSessionBoxColor,
     newYorkSessionTextColor,
     newYorkSessionLabelText,
-    newYorkTimeZone,
+    NEW_YORK_TIMEZONE,
     false,
     newYorkSessionTextColor,
     DASHED_LINE_STYLE,
