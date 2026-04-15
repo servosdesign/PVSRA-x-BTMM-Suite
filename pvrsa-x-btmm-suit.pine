@@ -368,7 +368,7 @@ plot(
     style = plot.style_stepline,
     linewidth = 1,
     editable = false,
-    title = 'Historical Daily Opens'
+    title = 'Historical Daily Open'
 )
 
 bool showPreviousDayHighLow = input.bool(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Show PDH/PDL Lines', defval = true, inline = 'highlow', tooltip = 'PDH/PDL show only on intraday timeframes, whereas PWH/PWL show up to the daily timeframe.')
