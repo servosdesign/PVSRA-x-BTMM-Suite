@@ -358,6 +358,8 @@ bool showDailyOpenLine = input.bool(group = 'Daily Open (Intraday Only)', defval
 bool showDailyOpenLabel = input.bool(group = 'Daily Open (Intraday Only)', defval = true, title = 'Show Label', inline = 'dopenconf') and showDailyOpenLine and isMinuteChart
 bool showHistoricalDailyOpenLines = input.bool(group = 'Daily Open (Intraday Only)', defval = false, title = 'Show Historical Daily Opens', inline = 'dopenconf')
 color dailyOpenColor = input.color(group = 'Daily Open (Intraday Only)', title = 'Daily Open Color', defval = color.new(#ba6d99, 50), inline = 'dopenconf1')
+string dailyOpenLineStyleX = input.string(group = 'Daily Open (Intraday Only)', defval = DOTTED, title = 'Daily Open Line Style', options = [DOTTED, DASHED, SOLID], inline = 'dopenconf1')
+string dailyOpenLineStyle = f_resolveLineStyle(dailyOpenLineStyleX)
 bool extendDailyOpenLine = input.bool(group = 'Daily Open (Intraday Only)', title = 'Extend Line in Both Directions', defval = false, inline = 'dopenconf2')
 string dailyOpenLineExtend = extendDailyOpenLine ? extend.both : extend.none
 float dailyOpenPlotValue = showDailyOpenLine and showHistoricalDailyOpenLines ? dailyOpenPrice : na
@@ -950,7 +952,7 @@ f_sessionHLBox(
 
 if barstate.islast
     if showDailyOpenLine and isIntradayTimeframe and not showHistoricalDailyOpenLines
-        dailyOpenLine := f_upsertLine(dailyOpenLine, dayStartTime, dailyOpenPrice, dayEndTime, dailyOpenPrice, dailyOpenColor, SOLID_LINE_STYLE, dailyOpenLineExtend)
+        dailyOpenLine := f_upsertLine(dailyOpenLine, dayStartTime, dailyOpenPrice, dayEndTime, dailyOpenPrice, dailyOpenColor, dailyOpenLineStyle, dailyOpenLineExtend)
         if showDailyOpenLabel
             dailyOpenLabel := f_upsertLabel(dailyOpenLabel, dayEndTime, dailyOpenPrice, DAILY_OPEN_LABEL, dailyOpenColor)
         else
