@@ -171,9 +171,7 @@ int currentDayMidpoint = not na(currentSessionStart) and not na(currentSessionEn
  math.round((currentSessionStart + currentSessionEnd) / 2) :
   math.round((dayStartTime + dayEndTime) / 2)
 
-int sessionDay = not na(currentSessionStart) ?
- dayofweek(currentSessionStart, NEW_YORK_TIMEZONE) :
-  dayofweek(dayStartTime, NEW_YORK_TIMEZONE)
+int sessionDay = dayofweek(currentDayMidpoint, NEW_YORK_TIMEZONE)
 
 string currencySymbol = syminfo.currency == 'USD' ? '$' :
      syminfo.currency == 'EUR' ? '€' :
