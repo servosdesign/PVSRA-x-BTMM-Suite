@@ -451,9 +451,9 @@ if showDayLabelsNow and isNewDay
 
 if showDaySeparatorLinesNow and isNewDay and not isNewWeek
     newDayLine = line.new(
-         time, low, time, high,
+         time, -1e10, time, 1e10,
          xloc = xloc.bar_time,
-         extend = extend.both,
+         extend = extend.none,
          color = daySeparatorColor,
          style = daySeparatorStyle,
          width = daySeparatorWidth)
@@ -461,9 +461,9 @@ if showDaySeparatorLinesNow and isNewDay and not isNewWeek
 
 if showWeekSeparatorLinesNow and isNewWeek
     line.new(
-         time, low, time, high,
+         time, -1e10, time, 1e10,
          xloc = xloc.bar_time,
-         extend = extend.both,
+         extend = extend.none,
          color = weekSeparatorColor,
          style = weekSeparatorStyle,
          width = weekSeparatorWidth)
