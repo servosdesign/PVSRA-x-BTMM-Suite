@@ -102,6 +102,19 @@ var line amr50HighLine = na
 var line amr50LowLine = na
 var line psychologicalHighLine = na
 var line psychologicalLowLine = na
+var line pivotPointLine = na
+var line pivotResistanceLevel1Line = na
+var line pivotSupportLevel1Line = na
+var line pivotResistanceLevel2Line = na
+var line pivotSupportLevel2Line = na
+var line pivotResistanceLevel3Line = na
+var line pivotSupportLevel3Line = na
+var line mLevel0Line = na
+var line mLevel1Line = na
+var line mLevel2Line = na
+var line mLevel3Line = na
+var line mLevel4Line = na
+var line mLevel5Line = na
 var label dailyOpenLabel = na
 var label previousDayHighLabel = na
 var label previousDayLowLabel = na
@@ -125,13 +138,26 @@ var label amr50HighLabel = na
 var label amr50LowLabel = na
 var label amrRangeLabel = na
 var label amr50RangeLabel = na
+var label psychologicalHighLabel = na
+var label psychologicalLowLabel = na
+var label pivotPointLabel = na
+var label pivotResistanceLevel1Label = na
+var label pivotSupportLevel1Label = na
+var label pivotResistanceLevel2Label = na
+var label pivotSupportLevel2Label = na
+var label pivotResistanceLevel3Label = na
+var label pivotSupportLevel3Label = na
+var label mLevel0Label = na
+var label mLevel1Label = na
+var label mLevel2Label = na
+var label mLevel3Label = na
+var label mLevel4Label = na
+var label mLevel5Label = na
 
-int labelXOffset = time_close * timeframe.multiplier * 60 * 1000
 int dayStartTime = time(DAILY_TIMEFRAME)
 int dayEndTime = time_close(DAILY_TIMEFRAME)
 int separatorReferenceTime = last_bar_time
 int regularTradingHoursSessionStart = time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE)
-int pivotAndMLabelsXOffset = time_close * timeframe.multiplier * 60 * 1000
 int securitySourceOffset = barstate.isrealtime ? 1 : 0
 int securityResultOffset = barstate.isrealtime ? 0 : 1
 int psychologicalSessionStartTime = na
@@ -148,7 +174,6 @@ string psychologicalHighLabelText = ''
 string psychologicalLowLabelText = ''
 bool isMinuteChart = timeframe.isminutes
 bool isSecondsChart = timeframe.isseconds
-bool useCurrentDayStart = isSecondsChart or (isMinuteChart and timeframe.multiplier < 5)
 bool isIntradayVisibleTimeframe = isMinuteChart and timeframe.multiplier <= 240 and timeframe.multiplier >= 1
 bool isIntradayTimeframe = timeframe.isintraday
 bool isIntradayOrDailyTimeframe = isIntradayTimeframe or timeframe.isdaily
@@ -156,9 +181,6 @@ bool isNewDay = ta.change(dayStartTime) != 0
 bool isNewWeek = ta.change(time('W')) != 0
 bool inRegularTradingHours = not na(time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE))
 bool isNewRegularTradingHoursSession = inRegularTradingHours and not inRegularTradingHours[1]
-
-int pivotAndMLevelsStart = useCurrentDayStart ? dayStartTime :
- dayStartTime - 86400 * 1000
 
 if isNewDay
     currentSessionStart := na
@@ -254,25 +276,6 @@ f_dayName(int day) =>
 
 string dayLabelText = na(sessionDay) ? '' : f_dayName(sessionDay)
 
-f_upsertHorizontalLine(line existingLine, int startTime, float price, color lineColor) =>
-    line resultLine = existingLine
-
-    if na(resultLine)
-        resultLine := line.new(
-            x1 = startTime,
-            y1 = price,
-            x2 = time,
-            y2 = price,
-            xloc = xloc.bar_time,
-            extend = extend.none,
-            color = lineColor
-        )
-    else
-        line.set_xy1(resultLine, startTime, price)
-        line.set_xy2(resultLine, time, price)
-
-    resultLine
-
 f_resolveLineStyle(simple string lineStyle) =>
     lineStyle == DOTTED ? DOTTED_LINE_STYLE :
      lineStyle == SOLID ? SOLID_LINE_STYLE :
@@ -305,6 +308,28 @@ f_upsertLabel(label existingLabel, int x, float y, string labelText, color textC
         label.set_style(result, label.style_label_up)
         label.set_color(result, color.new(color.black, 100))
         label.set_size(result, size.small)
+    result
+
+f_deleteLine(line existingLine) =>
+    line result = existingLine
+    if not na(result)
+        line.delete(result)
+    result := na
+    result
+
+f_deleteLabel(label existingLabel) =>
+    label result = existingLabel
+    if not na(result)
+        label.delete(result)
+    result := na
+    result
+
+f_upsertOptionalLabel(label existingLabel, bool enabled, int x, float y, string labelText, color textColor) =>
+    label result = existingLabel
+    if enabled
+        result := f_upsertLabel(result, x, y, labelText, textColor)
+    else
+        result := f_deleteLabel(result)
     result
 
 f_requestRangeLevels(bool enabled, simple string resolution, int length, bool fromOpen) =>
@@ -575,7 +600,7 @@ bool showAMRMetrics = amrMetricDisplayMode != 'Off'
 
 bool showMarketSessions = input.bool(true, group = 'Market sessions (Intraday Only)', title = 'Show Market Sessions') and isIntradayVisibleTimeframe
 bool showMarketSessionLabels = input.bool(false, group = 'Market sessions (Intraday Only)', title = 'Show Market Session Labels')
-bool showMarketSessionsOnWeekends = input.bool(false, group = 'Market sessions (Intraday Only)', title = 'Show Market Sessions on Weekends', tooltip = 'Turn on or off market sessions on weekends (crypto).') and isIntradayVisibleTimeframe
+bool showMarketSessionsOnWeekends = input.bool(true, group = 'Market sessions (Intraday Only)', title = 'Show Market Sessions on Weekends', tooltip = 'Turn on or off market sessions on weekends (crypto).') and isIntradayVisibleTimeframe
 string sessionMetricDisplayMode = input.string(RANGE_METRIC, 'Session Metrics', options = ['Off', RANGE_METRIC, CURRENCY_METRIC, 'Percent'], group = 'Market sessions (Intraday Only)', inline = 'sessmetrics')
 int maxSessionMetricTfMinutes = input.int(15, 'Hide Session Range Labels Above Timeframe (min)', minval = 1, maxval = 1439, group = 'Market sessions (Intraday Only)', inline = 'sessmetrics')
 bool showSessionMetrics = sessionMetricDisplayMode != 'Off'
@@ -626,7 +651,7 @@ string newYorkSessionInputTime = f_extendSession(input.session(group = 'Market s
 string newYorkSessionTime = showMarketSessionsOnWeekends ? newYorkSessionInputTime + ALL_DAYS_SESSION_SUFFIX : newYorkSessionInputTime + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 bool showPivotPoint = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Pivot Point', defval = false)
-bool showPivotLabels = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Pivot Point Label', defval = false)
+bool showPivotLabels = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Pivot/R/S Labels', defval = false)
 color pivotColor = input.color(group = 'Pivot Points (intraday only)', title = 'Pivot Point Line Color', defval = color(#bdb76b), inline = 'pivotcolors')
 color pivotLabelColor = input.color(group = 'Pivot Points (intraday only)', title = 'Pivot Point Label Color', defval = color(#bdb76b), inline = 'pivotcolors')
 bool showLevelOnePivotPoints = input.bool(group = 'Pivot Points (intraday only)', title = 'Show Level 1 Resistance and Support Lines', defval = false, inline = 'pivotlevels')
@@ -637,119 +662,52 @@ color pivotResistanceColor = input.color(group = 'Pivot Points (intraday only)',
 color pivotSupportColor = input.color(group = 'Pivot Points (intraday only)', title = 'Support Line Color', defval = color(#3ee145), inline = 'pivotrscustom')
 bool extendPivots = input.bool(group = 'Pivot Points (intraday only)', title = 'Extend Lines in Both Directions', defval = false)
 string resistanceAndSupportLineStyle = f_resolveLineStyle(resistanceAndSupportLineStyleX)
+string pivotLineExtend = extendPivots ? extend.both : extend.none
 bool drawPivotPointNow = isIntradayTimeframe and showPivotPoint
 bool drawLevelOnePivotPointsNow = isIntradayTimeframe and showLevelOnePivotPoints
 bool drawLevelTwoPivotPointsNow = isIntradayTimeframe and showLevelTwoPivotPoints
 bool drawLevelThreePivotPointsNow = isIntradayTimeframe and showLevelThreePivotPoints
 
-if drawPivotPointNow
-    trLib.drawPivot(
-        pivotPoint,
-        DAILY_TIMEFRAME,
-        PIVOT_TAG,
-        pivotColor,
-        pivotLabelColor,
-        resistanceAndSupportLineStyle,
-        1,
-        extendPivots ? extend.both : extend.right,
-        showPivotLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
+if barstate.islast
+    if drawPivotPointNow
+        pivotPointLine := f_upsertLine(pivotPointLine, dayStartTime, pivotPoint, dayEndTime, pivotPoint, pivotColor, resistanceAndSupportLineStyle, pivotLineExtend)
+        pivotPointLabel := f_upsertOptionalLabel(pivotPointLabel, showPivotLabels, dayEndTime, pivotPoint, PIVOT_TAG, pivotLabelColor)
+    else
+        pivotPointLine := f_deleteLine(pivotPointLine)
+        pivotPointLabel := f_deleteLabel(pivotPointLabel)
 
-if drawLevelOnePivotPointsNow
-    trLib.drawPivot(
-        pivotResistanceLevel1,
-        DAILY_TIMEFRAME,
-        PIVOT_RESISTANCE_1_TAG,
-        pivotResistanceColor,
-        pivotResistanceColor,
-        resistanceAndSupportLineStyle,
-        1,
-        extendPivots ? extend.both : extend.right,
-        showPivotLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
+    if drawLevelOnePivotPointsNow
+        pivotResistanceLevel1Line := f_upsertLine(pivotResistanceLevel1Line, dayStartTime, pivotResistanceLevel1, dayEndTime, pivotResistanceLevel1, pivotResistanceColor, resistanceAndSupportLineStyle, pivotLineExtend)
+        pivotSupportLevel1Line := f_upsertLine(pivotSupportLevel1Line, dayStartTime, pivotSupportLevel1, dayEndTime, pivotSupportLevel1, pivotSupportColor, resistanceAndSupportLineStyle, pivotLineExtend)
+        pivotResistanceLevel1Label := f_upsertOptionalLabel(pivotResistanceLevel1Label, showPivotLabels, dayEndTime, pivotResistanceLevel1, PIVOT_RESISTANCE_1_TAG, pivotResistanceColor)
+        pivotSupportLevel1Label := f_upsertOptionalLabel(pivotSupportLevel1Label, showPivotLabels, dayEndTime, pivotSupportLevel1, PIVOT_SUPPORT_1_TAG, pivotSupportColor)
+    else
+        pivotResistanceLevel1Line := f_deleteLine(pivotResistanceLevel1Line)
+        pivotSupportLevel1Line := f_deleteLine(pivotSupportLevel1Line)
+        pivotResistanceLevel1Label := f_deleteLabel(pivotResistanceLevel1Label)
+        pivotSupportLevel1Label := f_deleteLabel(pivotSupportLevel1Label)
 
-    trLib.drawPivot(
-        pivotSupportLevel1,
-        DAILY_TIMEFRAME,
-        PIVOT_SUPPORT_1_TAG,
-        color(pivotSupportColor),
-        color(pivotSupportColor),
-        resistanceAndSupportLineStyle,
-        1,
-        extendPivots ? extend.both : extend.right,
-        showPivotLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
+    if drawLevelTwoPivotPointsNow
+        pivotResistanceLevel2Line := f_upsertLine(pivotResistanceLevel2Line, dayStartTime, pivotResistanceLevel2, dayEndTime, pivotResistanceLevel2, pivotResistanceColor, resistanceAndSupportLineStyle, pivotLineExtend)
+        pivotSupportLevel2Line := f_upsertLine(pivotSupportLevel2Line, dayStartTime, pivotSupportLevel2, dayEndTime, pivotSupportLevel2, pivotSupportColor, resistanceAndSupportLineStyle, pivotLineExtend)
+        pivotResistanceLevel2Label := f_upsertOptionalLabel(pivotResistanceLevel2Label, showPivotLabels, dayEndTime, pivotResistanceLevel2, PIVOT_RESISTANCE_2_TAG, pivotResistanceColor)
+        pivotSupportLevel2Label := f_upsertOptionalLabel(pivotSupportLevel2Label, showPivotLabels, dayEndTime, pivotSupportLevel2, PIVOT_SUPPORT_2_TAG, pivotSupportColor)
+    else
+        pivotResistanceLevel2Line := f_deleteLine(pivotResistanceLevel2Line)
+        pivotSupportLevel2Line := f_deleteLine(pivotSupportLevel2Line)
+        pivotResistanceLevel2Label := f_deleteLabel(pivotResistanceLevel2Label)
+        pivotSupportLevel2Label := f_deleteLabel(pivotSupportLevel2Label)
 
-if drawLevelTwoPivotPointsNow
-    trLib.drawPivot(
-        pivotResistanceLevel2,
-        DAILY_TIMEFRAME,
-        PIVOT_RESISTANCE_2_TAG,
-        pivotResistanceColor,
-        pivotResistanceColor,
-        resistanceAndSupportLineStyle,
-        1,
-        extendPivots ? extend.both : extend.right,
-        showPivotLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
-
-    trLib.drawPivot(
-        pivotSupportLevel2,
-        DAILY_TIMEFRAME,
-        PIVOT_SUPPORT_2_TAG,
-        color(pivotSupportColor),
-        color(pivotSupportColor),
-        resistanceAndSupportLineStyle,
-        1,
-        extendPivots ? extend.both : extend.right,
-        showPivotLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
-
-if drawLevelThreePivotPointsNow
-    trLib.drawPivot(
-        pivotResistanceLevel3,
-        DAILY_TIMEFRAME,
-        PIVOT_RESISTANCE_3_TAG,
-        pivotResistanceColor,
-        pivotResistanceColor,
-        resistanceAndSupportLineStyle,
-        1,
-        extendPivots ? extend.both : extend.right,
-        showPivotLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
-
-    trLib.drawPivot(
-        pivotSupportLevel3,
-        DAILY_TIMEFRAME,
-        PIVOT_SUPPORT_3_TAG,
-        color(pivotSupportColor),
-        color(pivotSupportColor),
-        resistanceAndSupportLineStyle,
-        1,
-        extendPivots ? extend.both : extend.right,
-        showPivotLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
+    if drawLevelThreePivotPointsNow
+        pivotResistanceLevel3Line := f_upsertLine(pivotResistanceLevel3Line, dayStartTime, pivotResistanceLevel3, dayEndTime, pivotResistanceLevel3, pivotResistanceColor, resistanceAndSupportLineStyle, pivotLineExtend)
+        pivotSupportLevel3Line := f_upsertLine(pivotSupportLevel3Line, dayStartTime, pivotSupportLevel3, dayEndTime, pivotSupportLevel3, pivotSupportColor, resistanceAndSupportLineStyle, pivotLineExtend)
+        pivotResistanceLevel3Label := f_upsertOptionalLabel(pivotResistanceLevel3Label, showPivotLabels, dayEndTime, pivotResistanceLevel3, PIVOT_RESISTANCE_3_TAG, pivotResistanceColor)
+        pivotSupportLevel3Label := f_upsertOptionalLabel(pivotSupportLevel3Label, showPivotLabels, dayEndTime, pivotSupportLevel3, PIVOT_SUPPORT_3_TAG, pivotSupportColor)
+    else
+        pivotResistanceLevel3Line := f_deleteLine(pivotResistanceLevel3Line)
+        pivotSupportLevel3Line := f_deleteLine(pivotSupportLevel3Line)
+        pivotResistanceLevel3Label := f_deleteLabel(pivotResistanceLevel3Label)
+        pivotSupportLevel3Label := f_deleteLabel(pivotSupportLevel3Label)
 
 bool showMLevels = input.bool(group = 'M Levels (intraday only)', title = 'Show M Levels', defval = false, inline = 'mlevels')
 bool showMLabels = input.bool(group = 'M Levels (intraday only)', title = 'Show M Levels Labels', defval = false, inline = 'mlevels')
@@ -758,98 +716,36 @@ color mLevelsLabelColor = input.color(group = 'M Levels (intraday only)', title 
 string mLevelsStyleX = input.string(group = 'M Levels (intraday only)', defval = DASHED, title = 'M Levels Line Style', options = [DOTTED, DASHED, SOLID], inline = 'mLevelsColors2')
 bool extendMLevels = input.bool(group = 'M Levels (intraday only)', title = 'Extend Lines in Both Directions', defval = false)
 string mLevelsStyle = f_resolveLineStyle(mLevelsStyleX)
+string mLevelsLineExtend = extendMLevels ? extend.both : extend.none
 bool drawMLevelsNow = isIntradayTimeframe and showMLevels
 
-if drawMLevelsNow
-    trLib.drawPivot(
-        mLevel0,
-        DAILY_TIMEFRAME,
-        M_LEVEL_0_TAG,
-        mLevelsColor,
-        mLevelsLabelColor,
-        mLevelsStyle,
-        1,
-        extendMLevels ? extend.both : extend.right,
-        showMLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
-
-    trLib.drawPivot(
-        mLevel1,
-        DAILY_TIMEFRAME,
-        M_LEVEL_1_TAG,
-        mLevelsColor,
-        mLevelsLabelColor,
-        mLevelsStyle,
-        1,
-        extendMLevels ? extend.both : extend.right,
-        showMLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
-
-    trLib.drawPivot(
-        mLevel2,
-        DAILY_TIMEFRAME,
-        M_LEVEL_2_TAG,
-        mLevelsColor,
-        mLevelsLabelColor,
-        mLevelsStyle,
-        1,
-        extendMLevels ? extend.both : extend.right,
-        showMLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
-
-    trLib.drawPivot(
-        mLevel3,
-        DAILY_TIMEFRAME,
-        M_LEVEL_3_TAG,
-        mLevelsColor,
-        mLevelsLabelColor,
-        mLevelsStyle,
-        1,
-        extendMLevels ? extend.both : extend.right,
-        showMLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
-
-    trLib.drawPivot(
-        mLevel4,
-        DAILY_TIMEFRAME,
-        M_LEVEL_4_TAG,
-        mLevelsColor,
-        mLevelsLabelColor,
-        mLevelsStyle,
-        1,
-        extendMLevels ? extend.both : extend.right,
-        showMLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
-
-    trLib.drawPivot(
-        mLevel5,
-        DAILY_TIMEFRAME,
-        M_LEVEL_5_TAG,
-        mLevelsColor,
-        mLevelsLabelColor,
-        mLevelsStyle,
-        1,
-        extendMLevels ? extend.both : extend.right,
-        showMLabels,
-        true,
-        pivotAndMLevelsStart,
-        pivotAndMLabelsXOffset
-    )
+if barstate.islast
+    if drawMLevelsNow
+        mLevel0Line := f_upsertLine(mLevel0Line, dayStartTime, mLevel0, dayEndTime, mLevel0, mLevelsColor, mLevelsStyle, mLevelsLineExtend)
+        mLevel1Line := f_upsertLine(mLevel1Line, dayStartTime, mLevel1, dayEndTime, mLevel1, mLevelsColor, mLevelsStyle, mLevelsLineExtend)
+        mLevel2Line := f_upsertLine(mLevel2Line, dayStartTime, mLevel2, dayEndTime, mLevel2, mLevelsColor, mLevelsStyle, mLevelsLineExtend)
+        mLevel3Line := f_upsertLine(mLevel3Line, dayStartTime, mLevel3, dayEndTime, mLevel3, mLevelsColor, mLevelsStyle, mLevelsLineExtend)
+        mLevel4Line := f_upsertLine(mLevel4Line, dayStartTime, mLevel4, dayEndTime, mLevel4, mLevelsColor, mLevelsStyle, mLevelsLineExtend)
+        mLevel5Line := f_upsertLine(mLevel5Line, dayStartTime, mLevel5, dayEndTime, mLevel5, mLevelsColor, mLevelsStyle, mLevelsLineExtend)
+        mLevel0Label := f_upsertOptionalLabel(mLevel0Label, showMLabels, dayEndTime, mLevel0, M_LEVEL_0_TAG, mLevelsLabelColor)
+        mLevel1Label := f_upsertOptionalLabel(mLevel1Label, showMLabels, dayEndTime, mLevel1, M_LEVEL_1_TAG, mLevelsLabelColor)
+        mLevel2Label := f_upsertOptionalLabel(mLevel2Label, showMLabels, dayEndTime, mLevel2, M_LEVEL_2_TAG, mLevelsLabelColor)
+        mLevel3Label := f_upsertOptionalLabel(mLevel3Label, showMLabels, dayEndTime, mLevel3, M_LEVEL_3_TAG, mLevelsLabelColor)
+        mLevel4Label := f_upsertOptionalLabel(mLevel4Label, showMLabels, dayEndTime, mLevel4, M_LEVEL_4_TAG, mLevelsLabelColor)
+        mLevel5Label := f_upsertOptionalLabel(mLevel5Label, showMLabels, dayEndTime, mLevel5, M_LEVEL_5_TAG, mLevelsLabelColor)
+    else
+        mLevel0Line := f_deleteLine(mLevel0Line)
+        mLevel1Line := f_deleteLine(mLevel1Line)
+        mLevel2Line := f_deleteLine(mLevel2Line)
+        mLevel3Line := f_deleteLine(mLevel3Line)
+        mLevel4Line := f_deleteLine(mLevel4Line)
+        mLevel5Line := f_deleteLine(mLevel5Line)
+        mLevel0Label := f_deleteLabel(mLevel0Label)
+        mLevel1Label := f_deleteLabel(mLevel1Label)
+        mLevel2Label := f_deleteLabel(mLevel2Label)
+        mLevel3Label := f_deleteLabel(mLevel3Label)
+        mLevel4Label := f_deleteLabel(mLevel4Label)
+        mLevel5Label := f_deleteLabel(mLevel5Label)
 
 bool showPsychologicalLevelsOnSupportedMinuteCharts = isMinuteChart and (timeframe.multiplier == 60 or timeframe.multiplier == 30 or timeframe.multiplier == 15 or timeframe.multiplier == 5 or timeframe.multiplier == 3 or timeframe.multiplier == 1)
 bool showPsychologicalLevels = input.bool(group = 'Weekly Psycological Levels (Intraday Only)', defval = false, title = 'Show Psycological Levels', inline = 'psyconf') and showPsychologicalLevelsOnSupportedMinuteCharts
@@ -875,24 +771,13 @@ if showPsychologicalLevels
     psychologicalLowLabelText := calculatedPsychologicalLowLabelText
     psychologicalSessionStartTime := calculatedPsychologicalSessionStartTime
 
-if showPsychologicalLevelLabels
-    trLib.rLabelLastBar(
-        psychologicalLevelHigh,
-        psychologicalHighLabelText,
-        label.style_none,
-        psychologicalLevelHighColor,
-        true,
-        labelXOffset
-    )
-
-    trLib.rLabelLastBar(
-        psychologicalLevelLow,
-        psychologicalLowLabelText,
-        label.style_none,
-        psychologicalLevelLowColor,
-        true,
-        labelXOffset
-    )
+if barstate.islast
+    if showPsychologicalLevelLabels
+        psychologicalHighLabel := f_upsertLabel(psychologicalHighLabel, dayEndTime, psychologicalLevelHigh, psychologicalHighLabelText, psychologicalLevelHighColor)
+        psychologicalLowLabel := f_upsertLabel(psychologicalLowLabel, dayEndTime, psychologicalLevelLow, psychologicalLowLabelText, psychologicalLevelLowColor)
+    else
+        psychologicalHighLabel := f_deleteLabel(psychologicalHighLabel)
+        psychologicalLowLabel := f_deleteLabel(psychologicalLowLabel)
 
 plot(
     showPsychologicalLevelsOnSupportedMinuteCharts and
@@ -1383,18 +1268,11 @@ f_sessionHLBox(
     DASHED_LINE_STYLE
 )
 
-if barstate.islast and not showAllHistoricalPsychologicalLevels and showPsychologicalLevels
-    psychologicalHighLine := f_upsertHorizontalLine(
-        psychologicalHighLine,
-        psychologicalSessionStartTime,
-        psychologicalLevelHigh,
-        psychologicalLevelHighColor
-    )
-
-    psychologicalLowLine := f_upsertHorizontalLine(
-        psychologicalLowLine,
-        psychologicalSessionStartTime,
-        psychologicalLevelLow,
-        psychologicalLevelLowColor
-    )
+if barstate.islast
+    if showPsychologicalLevels
+        psychologicalHighLine := f_upsertLine(psychologicalHighLine, psychologicalSessionStartTime, psychologicalLevelHigh, dayEndTime, psychologicalLevelHigh, psychologicalLevelHighColor, SOLID_LINE_STYLE, extend.none)
+        psychologicalLowLine := f_upsertLine(psychologicalLowLine, psychologicalSessionStartTime, psychologicalLevelLow, dayEndTime, psychologicalLevelLow, psychologicalLevelLowColor, SOLID_LINE_STYLE, extend.none)
+    else
+        psychologicalHighLine := f_deleteLine(psychologicalHighLine)
+        psychologicalLowLine := f_deleteLine(psychologicalLowLine)
     
