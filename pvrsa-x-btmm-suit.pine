@@ -1,5 +1,5 @@
 //@version=6
-indicator(title = 'PVSRA × BTMM Suite', shorttitle = 'PVRSAxBTMM', overlay = true, scale = scale.none, max_bars_back = 300, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500, dynamic_requests = true)
+indicator(title = 'PVSRA × BTMM Suite', shorttitle = 'PVRSAxBTMM', overlay = true, max_bars_back = 300, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500, dynamic_requests = true)
 import TradersReality/Traders_Reality_Lib/2 as trLib
 
 const int EMA_5_LENGTH = 5
@@ -1397,3 +1397,4 @@ if barstate.islast and not showAllHistoricalPsychologicalLevels and showPsycholo
         psychologicalLevelLow,
         psychologicalLevelLowColor
     )
+    
