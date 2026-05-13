@@ -8,6 +8,7 @@ const int EMA_50_LENGTH = 50
 const int EMA_200_LENGTH = 200
 const int EMA_800_LENGTH = 800
 const int ONE_WEEK_IN_MILLISECONDS = 7 * 24 * 60 * 60 * 1000
+const int MAX_HISTORICAL_PSYCHOLOGICAL_WEEKS = 100
 const string EMA_5_LABEL = '5 EMA'
 const string EMA_13_LABEL = '13 EMA'
 const string EMA_50_LABEL = '50 EMA'
@@ -51,6 +52,8 @@ const string M_LEVEL_2_TAG = 'M2'
 const string M_LEVEL_3_TAG = 'M3'
 const string M_LEVEL_4_TAG = 'M4'
 const string M_LEVEL_5_TAG = 'M5'
+const string PSYCHOLOGICAL_HIGH_LABEL = 'Psy High'
+const string PSYCHOLOGICAL_LOW_LABEL = 'Psy Low'
 const string DAILY_OPEN_LABEL = 'Open'
 const string PDH_LABEL = 'PDH'
 const string PDL_LABEL = 'PDL'
@@ -115,6 +118,13 @@ var line mLevel2Line = na
 var line mLevel3Line = na
 var line mLevel4Line = na
 var line mLevel5Line = na
+var float weeklyPsychologicalSessionHigh = na
+var float weeklyPsychologicalSessionLow = na
+var int weeklyPsychologicalSessionStartTime = na
+var float confirmedPsychologicalSessionHigh = na
+var float confirmedPsychologicalSessionLow = na
+var line activeHistoricalPsychologicalHighLine = na
+var line activeHistoricalPsychologicalLowLine = na
 var label dailyOpenLabel = na
 var label previousDayHighLabel = na
 var label previousDayLowLabel = na
@@ -324,6 +334,18 @@ f_deleteLabel(label existingLabel) =>
     result := na
     result
 
+f_trackLine(array<line> linesArray, line newLine, int maxLines) =>
+    array.push(linesArray, newLine)
+    if array.size(linesArray) > maxLines
+        line.delete(array.shift(linesArray))
+    newLine
+
+f_deleteLineArray(array<line> linesArray) =>
+    if array.size(linesArray) > 0
+        for i = 0 to array.size(linesArray) - 1 by 1
+            line.delete(array.get(linesArray, i))
+        array.clear(linesArray)
+
 f_upsertOptionalLabel(label existingLabel, bool enabled, int x, float y, string labelText, color textColor) =>
     label result = existingLabel
     if enabled
@@ -465,6 +487,8 @@ bool showDayLabelsNow = timeframe.isintraday and isInLookbackWindow and separato
 var array<line> daySeparatorLinesArray = array.new<line>()
 var array<line> weekSeparatorLinesArray = array.new<line>()
 var array<label> daySeparatorLabelsArray = array.new<label>()
+var array<line> historicalPsychologicalHighLinesArray = array.new<line>()
+var array<line> historicalPsychologicalLowLinesArray = array.new<line>()
 
 if not showDaySeparatorLinesNow
     if array.size(daySeparatorLinesArray) > 0
@@ -611,7 +635,8 @@ bool showAsiaSession = input.bool(group = 'Market session: Asia (Intraday Only)'
 string asianSessionLabelText = input.string(group = 'Market session: Asia (Intraday Only)', defval = 'Asia', title = 'Name:', inline = 'asiastyle')
 color asianSessionBoxColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Box Color', defval = color.rgb(190, 190, 190, 75), inline = 'asiastyle')
 color asianSessionTextColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'asiastyle')
-string asianSessionTimeRaw = f_extendSession(input.session(group = 'Market session: Asia (Intraday Only)', defval = ASIA_SESSION_DEFAULT, title = 'Time (ET):', inline = 'asiastyle'))
+string asianSessionInputTime = input.session(group = 'Market session: Asia (Intraday Only)', defval = ASIA_SESSION_DEFAULT, title = 'Time (ET):', inline = 'asiastyle')
+string asianSessionTimeRaw = f_extendSession(asianSessionInputTime)
 string asianSessionTime = showMarketSessionsOnWeekends ? asianSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 bool showAsianSessionHighLowLines = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Show High/Low Lines', inline = 'asiahilo')
 color asianSessionHighLowLineColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'High/Low Color', defval = color.gray, inline = 'asiahilo')
@@ -754,52 +779,73 @@ bool showAllHistoricalPsychologicalLevels = input.bool(group = 'Weekly Psycologi
 color psychologicalLevelHighColor = input.color(group = 'Weekly Psycological Levels (Intraday Only)', title = 'Psycological High Color', defval = color(#ff9800), inline = 'psyconf1')
 color psychologicalLevelLowColor = input.color(group = 'Weekly Psycological Levels (Intraday Only)', title = 'Psycological Low Color', defval = color(#ff9800), inline = 'psyconf1')
 
+if not showAllHistoricalPsychologicalLevels
+    f_deleteLineArray(historicalPsychologicalHighLinesArray)
+    f_deleteLineArray(historicalPsychologicalLowLinesArray)
+    activeHistoricalPsychologicalHighLine := na
+    activeHistoricalPsychologicalLowLine := na
+
 if showPsychologicalLevels
-    [calculatedNewYorkDSTActive, calculatedLondonDSTActive, calculatedSydneyDSTActive] = trLib.calcDst()
+    string psychologicalAsiaSessionTime = asianSessionInputTime + ALL_DAYS_SESSION_SUFFIX
+    bool inPsychologicalAsiaSession = not na(time(timeframe.period, psychologicalAsiaSessionTime, NEW_YORK_TIMEZONE))
+    int psychologicalBarDay = dayofweek(time, NEW_YORK_TIMEZONE)
+    int psychologicalBarHour = hour(time, NEW_YORK_TIMEZONE)
+    bool isSundayPsychologicalSessionBar = inPsychologicalAsiaSession and psychologicalBarDay == dayofweek.sunday
+    bool isMondayPsychologicalSessionBar = inPsychologicalAsiaSession and psychologicalBarDay == dayofweek.monday and psychologicalBarHour < 12
+    bool inSundayMondayPsychologicalSession = isSundayPsychologicalSessionBar or isMondayPsychologicalSessionBar
+    bool wasInSundayMondayPsychologicalSession = bar_index > 0 ? inSundayMondayPsychologicalSession[1] : false
+    bool isNewSundayMondayPsychologicalSession = inSundayMondayPsychologicalSession and not wasInSundayMondayPsychologicalSession
+    bool isConfirmedSundayMondayPsychologicalSession = not inSundayMondayPsychologicalSession and wasInSundayMondayPsychologicalSession
 
-    [calculatedPsychologicalLevelHigh, calculatedPsychologicalLevelLow, calculatedPsychologicalHighLabelText, calculatedPsychologicalLowLabelText, calculatedPsychologicalSessionStartTime] =
-     trLib.calcPsyLevels(
-        ONE_WEEK_IN_MILLISECONDS,
-        true,
-        FOREX,
-        calculatedSydneyDSTActive
-    )
+    if isNewSundayMondayPsychologicalSession
+        if showAllHistoricalPsychologicalLevels and not na(activeHistoricalPsychologicalHighLine) and not na(activeHistoricalPsychologicalLowLine)
+            line.set_x2(activeHistoricalPsychologicalHighLine, time)
+            line.set_x2(activeHistoricalPsychologicalLowLine, time)
 
-    psychologicalLevelHigh := calculatedPsychologicalLevelHigh
-    psychologicalLevelLow := calculatedPsychologicalLevelLow
-    psychologicalHighLabelText := calculatedPsychologicalHighLabelText
-    psychologicalLowLabelText := calculatedPsychologicalLowLabelText
-    psychologicalSessionStartTime := calculatedPsychologicalSessionStartTime
+        weeklyPsychologicalSessionHigh := high
+        weeklyPsychologicalSessionLow := low
+        weeklyPsychologicalSessionStartTime := time
+    else if inSundayMondayPsychologicalSession
+        weeklyPsychologicalSessionHigh := na(weeklyPsychologicalSessionHigh) ? high : math.max(weeklyPsychologicalSessionHigh, high)
+        weeklyPsychologicalSessionLow := na(weeklyPsychologicalSessionLow) ? low : math.min(weeklyPsychologicalSessionLow, low)
+        weeklyPsychologicalSessionStartTime := na(weeklyPsychologicalSessionStartTime) ? time : weeklyPsychologicalSessionStartTime
+
+    if isConfirmedSundayMondayPsychologicalSession
+        confirmedPsychologicalSessionHigh := weeklyPsychologicalSessionHigh
+        confirmedPsychologicalSessionLow := weeklyPsychologicalSessionLow
+
+        if showAllHistoricalPsychologicalLevels and not na(weeklyPsychologicalSessionStartTime) and not na(confirmedPsychologicalSessionHigh) and not na(confirmedPsychologicalSessionLow)
+            activeHistoricalPsychologicalHighLine := f_trackLine(
+                 historicalPsychologicalHighLinesArray,
+                 line.new(x1 = weeklyPsychologicalSessionStartTime, y1 = confirmedPsychologicalSessionHigh, x2 = time, y2 = confirmedPsychologicalSessionHigh, xloc = xloc.bar_time, extend = extend.none, color = psychologicalLevelHighColor, style = SOLID_LINE_STYLE, width = 1),
+                 MAX_HISTORICAL_PSYCHOLOGICAL_WEEKS)
+            activeHistoricalPsychologicalLowLine := f_trackLine(
+                 historicalPsychologicalLowLinesArray,
+                 line.new(x1 = weeklyPsychologicalSessionStartTime, y1 = confirmedPsychologicalSessionLow, x2 = time, y2 = confirmedPsychologicalSessionLow, xloc = xloc.bar_time, extend = extend.none, color = psychologicalLevelLowColor, style = SOLID_LINE_STYLE, width = 1),
+                 MAX_HISTORICAL_PSYCHOLOGICAL_WEEKS)
+
+    if showAllHistoricalPsychologicalLevels and not inSundayMondayPsychologicalSession
+        if not na(activeHistoricalPsychologicalHighLine) and not na(confirmedPsychologicalSessionHigh)
+            line.set_xy2(activeHistoricalPsychologicalHighLine, time, confirmedPsychologicalSessionHigh)
+
+        if not na(activeHistoricalPsychologicalLowLine) and not na(confirmedPsychologicalSessionLow)
+            line.set_xy2(activeHistoricalPsychologicalLowLine, time, confirmedPsychologicalSessionLow)
+
+    psychologicalLevelHigh := weeklyPsychologicalSessionHigh
+    psychologicalLevelLow := weeklyPsychologicalSessionLow
+    psychologicalHighLabelText := PSYCHOLOGICAL_HIGH_LABEL
+    psychologicalLowLabelText := PSYCHOLOGICAL_LOW_LABEL
+    psychologicalSessionStartTime := weeklyPsychologicalSessionStartTime
+
+bool canDrawPsychologicalLevels = showPsychologicalLevels and not na(psychologicalSessionStartTime) and not na(psychologicalLevelHigh) and not na(psychologicalLevelLow)
 
 if barstate.islast
-    if showPsychologicalLevelLabels
+    if showPsychologicalLevelLabels and canDrawPsychologicalLevels
         psychologicalHighLabel := f_upsertLabel(psychologicalHighLabel, dayEndTime, psychologicalLevelHigh, psychologicalHighLabelText, psychologicalLevelHighColor)
         psychologicalLowLabel := f_upsertLabel(psychologicalLowLabel, dayEndTime, psychologicalLevelLow, psychologicalLowLabelText, psychologicalLevelLowColor)
     else
         psychologicalHighLabel := f_deleteLabel(psychologicalHighLabel)
         psychologicalLowLabel := f_deleteLabel(psychologicalLowLabel)
-
-plot(
-    showPsychologicalLevelsOnSupportedMinuteCharts and
-     showPsychologicalLevels and
-      showAllHistoricalPsychologicalLevels ? psychologicalLevelHigh : na,
-    color = psychologicalLevelHighColor,
-    style = plot.style_stepline,
-    linewidth = 1,
-    editable = false,
-    title = 'Historical Psycological High'
-)
-
-plot(
-    showPsychologicalLevelsOnSupportedMinuteCharts and
-     showPsychologicalLevels and
-      showAllHistoricalPsychologicalLevels ? psychologicalLevelLow : na,
-    color = psychologicalLevelLowColor,
-    style = plot.style_stepline,
-    linewidth = 1,
-    editable = false,
-    title = 'Historical Psycological Low'
-)
 
 f_sessionHLBox(
     bool enabled,
@@ -1269,7 +1315,7 @@ f_sessionHLBox(
 )
 
 if barstate.islast
-    if showPsychologicalLevels
+    if canDrawPsychologicalLevels
         psychologicalHighLine := f_upsertLine(psychologicalHighLine, psychologicalSessionStartTime, psychologicalLevelHigh, dayEndTime, psychologicalLevelHigh, psychologicalLevelHighColor, SOLID_LINE_STYLE, extend.none)
         psychologicalLowLine := f_upsertLine(psychologicalLowLine, psychologicalSessionStartTime, psychologicalLevelLow, dayEndTime, psychologicalLevelLow, psychologicalLevelLowColor, SOLID_LINE_STYLE, extend.none)
     else
