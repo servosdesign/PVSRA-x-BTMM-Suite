@@ -164,8 +164,10 @@ var label mLevel3Label = na
 var label mLevel4Label = na
 var label mLevel5Label = na
 
-int dayStartTime = time(DAILY_TIMEFRAME)
-int dayEndTime = time_close(DAILY_TIMEFRAME)
+int requestedDayStartTime = request.security(syminfo.tickerid, DAILY_TIMEFRAME, time, lookahead = barmerge.lookahead_on)
+int requestedDayEndTime = request.security(syminfo.tickerid, DAILY_TIMEFRAME, time_close, lookahead = barmerge.lookahead_on)
+int dayStartTime = na(requestedDayStartTime) ? time(DAILY_TIMEFRAME) : requestedDayStartTime
+int dayEndTime = na(requestedDayEndTime) ? time_close(DAILY_TIMEFRAME) : requestedDayEndTime
 int separatorReferenceTime = last_bar_time
 int regularTradingHoursSessionStart = time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE)
 int securitySourceOffset = barstate.isrealtime ? 1 : 0
