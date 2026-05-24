@@ -15,6 +15,7 @@ const string EMA_50_LABEL = '50 EMA'
 const string EMA_200_LABEL = '200 EMA'
 const string EMA_800_LABEL = '800 EMA'
 const string FOREX = 'forex'
+const string CRYPTO = 'crypto'
 const string PIPS = 'pips'
 const string TICKS = 'ticks'
 const string RANGE_METRIC = 'Range'
@@ -189,6 +190,7 @@ bool isSecondsChart = timeframe.isseconds
 bool isIntradayVisibleTimeframe = isMinuteChart and timeframe.multiplier <= 240 and timeframe.multiplier >= 1
 bool isIntradayTimeframe = timeframe.isintraday
 bool isIntradayOrDailyTimeframe = isIntradayTimeframe or timeframe.isdaily
+bool isCrypto = syminfo.type == CRYPTO
 bool isNewDay = ta.change(dayStartTime) != 0
 bool isNewWeek = ta.change(time('W')) != 0
 bool inRegularTradingHours = not na(time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE))
@@ -792,7 +794,7 @@ if showPsychologicalLevels
     bool inPsychologicalAsiaSession = not na(time(timeframe.period, psychologicalAsiaSessionTime, NEW_YORK_TIMEZONE))
     int psychologicalBarDay = dayofweek(time, NEW_YORK_TIMEZONE)
     int psychologicalBarHour = hour(time, NEW_YORK_TIMEZONE)
-    bool isSundayPsychologicalSessionBar = inPsychologicalAsiaSession and psychologicalBarDay == dayofweek.sunday
+    bool isSundayPsychologicalSessionBar = inPsychologicalAsiaSession and psychologicalBarDay == dayofweek.sunday and (not isCrypto or psychologicalBarHour >= 12)
     bool isMondayPsychologicalSessionBar = inPsychologicalAsiaSession and psychologicalBarDay == dayofweek.monday and psychologicalBarHour < 12
     bool inSundayMondayPsychologicalSession = isSundayPsychologicalSessionBar or isMondayPsychologicalSessionBar
     bool wasInSundayMondayPsychologicalSession = bar_index > 0 ? inSundayMondayPsychologicalSession[1] : false
