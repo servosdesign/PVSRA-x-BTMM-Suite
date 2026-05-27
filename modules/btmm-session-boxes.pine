@@ -10,7 +10,7 @@ const string CURRENCY_METRIC = 'Currency'
 const string JPY_TICKER = 'JPY'
 const string NEW_YORK_TIMEZONE = 'America/New_York'
 const string LONDON_TIMEZONE = 'Europe/London'
-const string ASIA_SESSION_DEFAULT = '1700-0045'
+const string ASIA_SESSION_DEFAULT = '1700-0100'
 const string EU_BRINKS_SESSION_DEFAULT = '0800-0900'
 const string LONDON_SESSION_DEFAULT = '0800-1700'
 const string US_BRINKS_SESSION_DEFAULT = '0900-1000'
@@ -45,19 +45,6 @@ f_resolveLineStyle(simple string lineStyle) =>
      lineStyle == SOLID ? SOLID_LINE_STYLE :
       DASHED_LINE_STYLE
 
-f_extendSessionByChartTimeframe(string session) =>
-    string sessionDays = str.length(session) > 9 ? str.substring(session, 9, str.length(session)) : ''
-    int startHour = int(str.tonumber(str.substring(session, 0, 2)))
-    int startMinute = int(str.tonumber(str.substring(session, 2, 4)))
-    int endHourRaw = int(str.tonumber(str.substring(session, 5, 7)))
-    int endMinute = int(str.tonumber(str.substring(session, 7, 9)))
-    int timeframeMinutes = isMinuteChart ? timeframe.multiplier : 1
-    int paddedEndTotalMinutes = endHourRaw * 60 + endMinute + timeframeMinutes
-    int paddedEndHour = int(math.floor(paddedEndTotalMinutes / 60))
-    int paddedEndMinute = paddedEndTotalMinutes % 60
-
-    str.format('{0,number,00}{1,number,00}-{2,number,00}{3,number,00}{4}', startHour, startMinute, paddedEndHour, paddedEndMinute, sessionDays)
-
 bool showMarketSessions = input.bool(true, group = 'Market sessions (Intraday Only)', title = 'Show Market Sessions') and isIntradayVisibleTimeframe
 bool showMarketSessionLabels = input.bool(false, group = 'Market sessions (Intraday Only)', title = 'Show Market Session Labels')
 bool showMarketSessionsOnWeekends = input.bool(true, group = 'Market sessions (Intraday Only)', title = 'Show Market Sessions on Weekends', tooltip = 'Turn on or off market sessions on weekends (crypto).') and isIntradayVisibleTimeframe
@@ -72,10 +59,7 @@ string asianSessionLabelText = input.string(group = 'Market session: Asia (Intra
 color asianSessionBoxColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Box Color', defval = color.rgb(190, 190, 190, 75), inline = 'asiastyle')
 color asianSessionTextColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'asiastyle')
 string asianSessionInputTime = ASIA_SESSION_DEFAULT
-string asianSessionBoxTimeRaw = f_extendSessionByChartTimeframe(asianSessionInputTime)
-string asianSessionCalculationTimeRaw = f_extendSessionByChartTimeframe(asianSessionBoxTimeRaw)
-string asianSessionBoxTime = showMarketSessionsOnWeekends ? asianSessionBoxTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionBoxTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
-string asianSessionCalculationTime = showMarketSessionsOnWeekends ? asianSessionCalculationTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionCalculationTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
+string asianSessionTime = showMarketSessionsOnWeekends ? asianSessionInputTime + ALL_DAYS_SESSION_SUFFIX : asianSessionInputTime + WEEKDAYS_ONLY_SESSION_SUFFIX
 bool showAsianSessionHighLowLines = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Show High/Low Lines', inline = 'asiahilo')
 color asianSessionHighLowLineColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'High/Low Color', defval = color.gray, inline = 'asiahilo')
 string asianSessionHighLowLineStyleX = input.string(group = 'Market session: Asia (Intraday Only)', defval = DOTTED, title = 'Style', options = [DOTTED, DASHED, SOLID], inline = 'asiahilo')
@@ -113,22 +97,29 @@ color newYorkSessionTextColor = input.color(group = 'Market session: New York (I
 string newYorkSessionInputTime = input.session(group = 'Market session: New York (Intraday Only)', defval = NEW_YORK_SESSION_DEFAULT, title = 'Time (ET):', inline = 'nystyle')
 string newYorkSessionTime = showMarketSessionsOnWeekends ? newYorkSessionInputTime + ALL_DAYS_SESSION_SUFFIX : newYorkSessionInputTime + WEEKDAYS_ONLY_SESSION_SUFFIX
 
-f_sessionEndTime(string session, string tz, int referenceTime) =>
+f_sessionWindow(string session, string tz, int referenceTime) =>
     int startHour = int(str.tonumber(str.substring(session, 0, 2)))
     int startMinute = int(str.tonumber(str.substring(session, 2, 4)))
     int endHourRaw = int(str.tonumber(str.substring(session, 5, 7)))
     int endMinute = int(str.tonumber(str.substring(session, 7, 9)))
     int endDayOffset = int(math.floor(endHourRaw / 24))
     int endHour = endHourRaw % 24
-    int sessionStartTimestamp = timestamp(tz, year(referenceTime, tz), month(referenceTime, tz), dayofmonth(referenceTime, tz), startHour, startMinute)
-    int sessionEndTimestamp = timestamp(tz, year(referenceTime, tz), month(referenceTime, tz), dayofmonth(referenceTime, tz), endHour, endMinute) + endDayOffset * ONE_DAY_IN_MILLISECONDS
+    int baseSessionStartTimestamp = timestamp(tz, year(referenceTime, tz), month(referenceTime, tz), dayofmonth(referenceTime, tz), startHour, startMinute)
+    int baseSessionEndTimestamp = timestamp(tz, year(referenceTime, tz), month(referenceTime, tz), dayofmonth(referenceTime, tz), endHour, endMinute) + endDayOffset * ONE_DAY_IN_MILLISECONDS
+    int adjustedSessionEndTimestamp = baseSessionEndTimestamp <= baseSessionStartTimestamp ? baseSessionEndTimestamp + ONE_DAY_IN_MILLISECONDS : baseSessionEndTimestamp
+    bool usePreviousSession = referenceTime < baseSessionStartTimestamp
+    int sessionStartTimestamp = usePreviousSession ? baseSessionStartTimestamp - ONE_DAY_IN_MILLISECONDS : baseSessionStartTimestamp
+    int sessionEndTimestamp = usePreviousSession ? adjustedSessionEndTimestamp - ONE_DAY_IN_MILLISECONDS : adjustedSessionEndTimestamp
 
-    sessionEndTimestamp <= sessionStartTimestamp ? sessionEndTimestamp + ONE_DAY_IN_MILLISECONDS : sessionEndTimestamp
+    [sessionStartTimestamp, sessionEndTimestamp]
+
+f_sessionDayAllowed(string session, string tz, int sessionStartTimestamp) =>
+    string sessionDays = str.length(session) > 10 ? str.substring(session, 10, str.length(session)) : '1234567'
+    str.contains(sessionDays, str.tostring(dayofweek(sessionStartTimestamp, tz)))
 
 f_sessionHLBox(
     bool enabled,
-    string calculationSessTime,
-    string boxSessTime,
+    string sessTime,
     color boxColor,
     color labelColor,
     string labelText,
@@ -138,7 +129,8 @@ f_sessionHLBox(
     string highLowLineStyle,
     bool showMidLine,
     color midLineColor,
-    string midLineStyle
+    string midLineStyle,
+    bool hideWhenSessionFitsInBar
 ) =>
     var box sessionBox = na
     var label sessionLabel = na
@@ -152,14 +144,23 @@ f_sessionHLBox(
     var int sessionStartTime = na
     var int sessionEndTime = na
 
-    bool inSession = enabled and not na(time(timeframe.period, calculationSessTime, tz))
+    int barEndTime = na(time_close) ? time + timeframe.in_seconds(timeframe.period) * 1000 : time_close
+    [currentSessionStartTime, currentSessionEndTime] = f_sessionWindow(sessTime, tz, barEndTime)
+    int barDuration = barEndTime - time
+    int sessionDuration = currentSessionEndTime - currentSessionStartTime
+    int sessionMidTime = math.round((currentSessionStartTime + currentSessionEndTime) / 2.0)
+    bool sessionOverlapsBar = time <= currentSessionEndTime and barEndTime > currentSessionStartTime
+    bool sessionMidpointInBar = time <= sessionMidTime and barEndTime > sessionMidTime
+    bool sessionFitsInSingleBar = sessionDuration <= barDuration
+    bool canDrawSession = not (hideWhenSessionFitsInBar and sessionDuration < barDuration)
+    bool inSession = enabled and canDrawSession and f_sessionDayAllowed(sessTime, tz, currentSessionStartTime) and (sessionFitsInSingleBar ? sessionMidpointInBar : sessionOverlapsBar)
 
     if inSession and not inSession[1]
         sessionHigh := high
         sessionLow := low
         sessionOpen := open
-        sessionStartTime := time
-        sessionEndTime := f_sessionEndTime(boxSessTime, tz, time)
+        sessionStartTime := currentSessionStartTime
+        sessionEndTime := currentSessionEndTime
         midX = math.round((sessionStartTime + sessionEndTime) / 2.0)
         sessionBox := box.new(left = sessionStartTime, top = high, right = sessionEndTime, bottom = low, xloc = xloc.bar_time, bgcolor = boxColor, border_color = boxColor)
         sessionLabel := showMarketSessionLabels ? label.new(x = midX, y = high, text = labelText, xloc = xloc.bar_time, style = label.style_none, textcolor = labelColor, size = size.small, yloc = yloc.price) : na
@@ -225,8 +226,7 @@ f_sessionHLBox(
 
 f_sessionHLBox(
     showAsiaSession,
-    asianSessionCalculationTime,
-    asianSessionBoxTime,
+    asianSessionTime,
     asianSessionBoxColor,
     asianSessionTextColor,
     asianSessionLabelText,
@@ -236,12 +236,12 @@ f_sessionHLBox(
     asianSessionHighLowLineStyle,
     showAsianSessionMidLine,
     asianSessionMidLineColor,
-    asianSessionMidLineStyle
+    asianSessionMidLineStyle,
+    false
 )
 
 f_sessionHLBox(
     showEuBrinksSession,
-    euBrinksSessionTime,
     euBrinksSessionTime,
     euBrinksSessionBoxColor,
     euBrinksSessionTextColor,
@@ -252,12 +252,12 @@ f_sessionHLBox(
     DASHED_LINE_STYLE,
     false,
     euBrinksSessionTextColor,
-    DASHED_LINE_STYLE
+    DASHED_LINE_STYLE,
+    true
 )
 
 f_sessionHLBox(
     showLondonSession,
-    londonSessionTime,
     londonSessionTime,
     londonSessionBoxColor,
     londonSessionTextColor,
@@ -268,12 +268,12 @@ f_sessionHLBox(
     DASHED_LINE_STYLE,
     false,
     londonSessionTextColor,
-    DASHED_LINE_STYLE
+    DASHED_LINE_STYLE,
+    false
 )
 
 f_sessionHLBox(
     showUsBrinksSession,
-    usBrinksSessionTime,
     usBrinksSessionTime,
     usBrinksSessionBoxColor,
     usBrinksSessionTextColor,
@@ -284,12 +284,12 @@ f_sessionHLBox(
     DASHED_LINE_STYLE,
     false,
     usBrinksSessionTextColor,
-    DASHED_LINE_STYLE
+    DASHED_LINE_STYLE,
+    true
 )
 
 f_sessionHLBox(
     showNewYorkSession,
-    newYorkSessionTime,
     newYorkSessionTime,
     newYorkSessionBoxColor,
     newYorkSessionTextColor,
@@ -300,5 +300,6 @@ f_sessionHLBox(
     DASHED_LINE_STYLE,
     false,
     newYorkSessionTextColor,
-    DASHED_LINE_STYLE
+    DASHED_LINE_STYLE,
+    false
 )

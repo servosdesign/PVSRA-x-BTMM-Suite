@@ -3,6 +3,7 @@ indicator(title = 'BTMM Horizontal Lines', shorttitle = 'BTMM H-Lines', overlay 
 
 const int MAX_HISTORICAL_DAILY_OPEN_DAYS = 200
 const int MAX_HISTORICAL_PSYCHOLOGICAL_WEEKS = 100
+const int ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const string FOREX = 'forex'
 const string CRYPTO = 'crypto'
 const string PIPS = 'pips'
@@ -11,7 +12,7 @@ const string RANGE_METRIC = 'Range'
 const string CURRENCY_METRIC = 'Currency'
 const string JPY_TICKER = 'JPY'
 const string NEW_YORK_TIMEZONE = 'America/New_York'
-const string ASIA_SESSION_DEFAULT = '1700-0000'
+const string ASIA_SESSION_DEFAULT = '1700-0100'
 const string DOTTED = 'Dotted'
 const string DASHED = 'Dashed'
 const string SOLID = 'Solid'
@@ -548,6 +549,26 @@ if barstate.islast
         mLevel4Label := f_deleteLabel(mLevel4Label)
         mLevel5Label := f_deleteLabel(mLevel5Label)
 
+f_psychologicalSessionWindow(string session, string tz, int referenceTime) =>
+    int startHour = int(str.tonumber(str.substring(session, 0, 2)))
+    int startMinute = int(str.tonumber(str.substring(session, 2, 4)))
+    int endHourRaw = int(str.tonumber(str.substring(session, 5, 7)))
+    int endMinute = int(str.tonumber(str.substring(session, 7, 9)))
+    int endDayOffset = int(math.floor(endHourRaw / 24))
+    int endHour = endHourRaw % 24
+    int baseSessionStartTimestamp = timestamp(tz, year(referenceTime, tz), month(referenceTime, tz), dayofmonth(referenceTime, tz), startHour, startMinute)
+    int baseSessionEndTimestamp = timestamp(tz, year(referenceTime, tz), month(referenceTime, tz), dayofmonth(referenceTime, tz), endHour, endMinute) + endDayOffset * ONE_DAY_IN_MILLISECONDS
+    int adjustedSessionEndTimestamp = baseSessionEndTimestamp <= baseSessionStartTimestamp ? baseSessionEndTimestamp + ONE_DAY_IN_MILLISECONDS : baseSessionEndTimestamp
+    bool usePreviousSession = referenceTime < baseSessionStartTimestamp
+    int sessionStartTimestamp = usePreviousSession ? baseSessionStartTimestamp - ONE_DAY_IN_MILLISECONDS : baseSessionStartTimestamp
+    int sessionEndTimestamp = usePreviousSession ? adjustedSessionEndTimestamp - ONE_DAY_IN_MILLISECONDS : adjustedSessionEndTimestamp
+
+    [sessionStartTimestamp, sessionEndTimestamp]
+
+f_psychologicalSessionDayAllowed(string session, string tz, int sessionStartTimestamp) =>
+    string sessionDays = str.length(session) > 10 ? str.substring(session, 10, str.length(session)) : '1234567'
+    str.contains(sessionDays, str.tostring(dayofweek(sessionStartTimestamp, tz)))
+
 bool showPsychologicalLevelsOnSupportedMinuteCharts = isMinuteChart and (timeframe.multiplier == 60 or timeframe.multiplier == 30 or timeframe.multiplier == 15 or timeframe.multiplier == 5 or timeframe.multiplier == 3 or timeframe.multiplier == 1)
 bool showPsychologicalLevels = input.bool(group = 'Weekly Psychological Levels (Intraday Only)', defval = false, title = 'Show Psychological Levels', inline = 'psyconf') and showPsychologicalLevelsOnSupportedMinuteCharts
 bool showPsychologicalLevelLabels = input.bool(group = 'Weekly Psychological Levels (Intraday Only)', defval = false, title = 'Show Psychological Level Labels', inline = 'psyconf', tooltip = 'The psychological High/Low will only show on these timeframes: 1h/30min/15min/5min/3min/1min. It is disabled on all others. This is because the calculation requires a candle to start at the correct time for Sydney/Tokyo but in other timeframes the data does not have values at the designated time for the Sydney/Tokyo sessions.') and showPsychologicalLevels
@@ -563,7 +584,9 @@ if not showAllHistoricalPsychologicalLevels
 
 if showPsychologicalLevels
     string psychologicalAsiaSessionTime = ASIA_SESSION_DEFAULT + ALL_DAYS_SESSION_SUFFIX
-    bool inPsychologicalAsiaSession = not na(time(timeframe.period, psychologicalAsiaSessionTime, NEW_YORK_TIMEZONE))
+    int psychologicalBarEndTime = na(time_close) ? time + timeframe.in_seconds(timeframe.period) * 1000 : time_close
+    [psychologicalAsiaSessionStartTime, psychologicalAsiaSessionEndTime] = f_psychologicalSessionWindow(psychologicalAsiaSessionTime, NEW_YORK_TIMEZONE, psychologicalBarEndTime)
+    bool inPsychologicalAsiaSession = f_psychologicalSessionDayAllowed(psychologicalAsiaSessionTime, NEW_YORK_TIMEZONE, psychologicalAsiaSessionStartTime) and time <= psychologicalAsiaSessionEndTime and psychologicalBarEndTime > psychologicalAsiaSessionStartTime
     int psychologicalBarDay = dayofweek(time, NEW_YORK_TIMEZONE)
     int psychologicalBarHour = hour(time, NEW_YORK_TIMEZONE)
     bool isSundayPsychologicalSessionBar = inPsychologicalAsiaSession and psychologicalBarDay == dayofweek.sunday and (not isCrypto or psychologicalBarHour >= 12)
