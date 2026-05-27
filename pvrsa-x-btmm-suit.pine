@@ -1,13 +1,14 @@
 //@version=6
 indicator(title = 'PVSRA × BTMM Suite', shorttitle = 'PVRSAxBTMM', overlay = true, max_bars_back = 300, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500, dynamic_requests = true)
-import TradersReality/Traders_Reality_Lib/2 as trLib
 
 const int EMA_5_LENGTH = 5
 const int EMA_13_LENGTH = 13
 const int EMA_50_LENGTH = 50
 const int EMA_200_LENGTH = 200
 const int EMA_800_LENGTH = 800
+const int ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const int ONE_WEEK_IN_MILLISECONDS = 7 * 24 * 60 * 60 * 1000
+const int MAX_HISTORICAL_DAILY_OPEN_DAYS = 200
 const int MAX_HISTORICAL_PSYCHOLOGICAL_WEEKS = 100
 const string EMA_5_LABEL = '5 EMA'
 const string EMA_13_LABEL = '13 EMA'
@@ -87,6 +88,8 @@ const string MONTHLY_OPEN_SUFFIX = '(MO)'
 
 var int currentSessionStart = na
 var int currentSessionEnd = na
+var float currentDayHigh = na
+var float currentDayLow = na
 var line dailyOpenLine = na
 var line previousDayHighLine = na
 var line previousDayLowLine = na
@@ -199,6 +202,13 @@ bool isNewRegularTradingHoursSession = inRegularTradingHours and not inRegularTr
 if isNewDay
     currentSessionStart := na
     currentSessionEnd := na
+
+if isNewDay or na(currentDayHigh) or na(currentDayLow)
+    currentDayHigh := high
+    currentDayLow := low
+else
+    currentDayHigh := math.max(currentDayHigh, high)
+    currentDayLow := math.min(currentDayLow, low)
 
 if isNewRegularTradingHoursSession
     currentSessionStart := regularTradingHoursSessionStart
@@ -358,7 +368,14 @@ f_upsertOptionalLabel(label existingLabel, bool enabled, int x, float y, string 
         result := f_deleteLabel(result)
     result
 
-f_requestRangeLevels(bool enabled, simple string resolution, int length, bool fromOpen) =>
+f_calcRangeLevels(simple int length, simple int barsBack, bool fromOpen) =>
+    float rangeValue = ta.sma(high - low, length)[barsBack]
+    float highLevel = fromOpen ? open + rangeValue : low + rangeValue
+    float lowLevel = fromOpen ? open - rangeValue : high - rangeValue
+
+    [rangeValue, highLevel, lowLevel]
+
+f_requestRangeLevels(bool enabled, simple string resolution, simple int length, bool fromOpen) =>
     float rangeValue = na
     float highLevel = na
     float lowLevel = na
@@ -368,7 +385,7 @@ f_requestRangeLevels(bool enabled, simple string resolution, int length, bool fr
          request.security(
             syminfo.tickerid,
             resolution,
-            trLib.adrHiLo(length, 1, fromOpen),
+            f_calcRangeLevels(length, 1, fromOpen),
             lookahead = barmerge.lookahead_on
         )
 
@@ -380,6 +397,7 @@ f_requestRangeLevels(bool enabled, simple string resolution, int length, bool fr
 
 bool scaleHelpMessage = input.bool(true, 'Scale Help', group = 'Chart Scaling', tooltip = 'If levels like PWH/PWL, ADR, AWR, or AMR compress the chart, right-click the price scale on the right and enable "Scale price chart only".')
 
+bool showPvsraVectorCandles = input.bool(title = 'Show Vector Candles', group = 'Candle Colors', defval = true, tooltip = 'Turn off to keep the chart candles unmodified.')
 color vectorRedCandleColor = input.color(title = 'Vector: Red', group = 'Candle Colors', defval = #FF5252, inline = 'vectorCandles', tooltip = 'Bull bars are green and bear bars are red when the bar is with volume >= 200% of the average volume of the 10 previous bars, or bars where the product of candle spread x candle volume is >= the highest for the 10 previous bars.\nBull bars are blue and bear bars are violet when the bar is with volume >= 150% of the average volume of the 10 previous bars.')
 color vectorGreenCandleColor = input.color(title = 'Vector: Green', group = 'Candle Colors', defval = #00E676, inline = 'vectorCandles')
 color vectorVioletCandleColor = input.color(title = 'Vector: Violet', group = 'Candle Colors', defval = #E040FB, inline = 'vectorCandles')
@@ -404,7 +422,7 @@ f_calcPvsraColor() =>
 
 [pvsraColor, alertFlag, averageVolume, volumeSpread, highestVolumeSpread] = f_calcPvsraColor()
 
-barcolor(pvsraColor)
+barcolor(showPvsraVectorCandles ? pvsraColor : na)
 
 
 bool showEma5 = input.bool(group = 'EMA Lines', title = '5', defval = true, inline = 'emaToggles')
@@ -433,16 +451,7 @@ string dailyOpenLineStyle = f_resolveLineStyle(dailyOpenLineStyleX)
 bool extendDailyOpenLine = input.bool(group = 'Daily Open (Intraday Only)', title = 'Extend Line in Both Directions', defval = false, inline = 'dopenconf2')
 string dailyOpenLineExtend = extendDailyOpenLine ? extend.both : extend.none
 float dailyOpenPrice = showDailyOpenLine ? request.security(syminfo.tickerid, DAILY_TIMEFRAME, open, lookahead = barmerge.lookahead_on) : na
-float dailyOpenPlotValue = showDailyOpenLine and showHistoricalDailyOpenLines ? dailyOpenPrice : na
-
-plot(
-    dailyOpenPlotValue,
-    color = dailyOpenColor,
-    style = plot.style_stepline,
-    linewidth = 1,
-    editable = false,
-    title = 'Historical Daily Open'
-)
+bool showHistoricalDailyOpenLinesNow = showDailyOpenLine and showHistoricalDailyOpenLines and isIntradayTimeframe
 
 bool showPreviousDayHighLow = input.bool(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Show PDH/PDL Lines', defval = true, inline = 'highlow', tooltip = 'PDH/PDL show only on intraday timeframes, whereas PWH/PWL show up to the daily timeframe.')
 color previousDayHighLowColor = input.color(group = 'Previous Day\'s High / Low (PDH / PDL) and Previous Week\'s High / Low (PWH / PWL)', title = 'Daily Color', defval = color.new(color.blue, 50), inline = 'highlow2')
@@ -491,8 +500,30 @@ bool showDayLabelsNow = timeframe.isintraday and isInLookbackWindow and separato
 var array<line> daySeparatorLinesArray = array.new<line>()
 var array<line> weekSeparatorLinesArray = array.new<line>()
 var array<label> daySeparatorLabelsArray = array.new<label>()
+var array<line> historicalDailyOpenLinesArray = array.new<line>()
+var int lastHistoricalDailyOpenStartTime = na
 var array<line> historicalPsychologicalHighLinesArray = array.new<line>()
 var array<line> historicalPsychologicalLowLinesArray = array.new<line>()
+
+if not showHistoricalDailyOpenLinesNow
+    f_deleteLineArray(historicalDailyOpenLinesArray)
+    lastHistoricalDailyOpenStartTime := na
+
+if showHistoricalDailyOpenLinesNow and not na(dayStartTime) and not na(dayEndTime) and not na(dailyOpenPrice)
+    if na(lastHistoricalDailyOpenStartTime) or dayStartTime != lastHistoricalDailyOpenStartTime
+        f_trackLine(
+             historicalDailyOpenLinesArray,
+             line.new(x1 = dayStartTime, y1 = dailyOpenPrice, x2 = dayEndTime, y2 = dailyOpenPrice, xloc = xloc.bar_time, extend = dailyOpenLineExtend, color = dailyOpenColor, style = dailyOpenLineStyle, width = 1),
+             MAX_HISTORICAL_DAILY_OPEN_DAYS)
+        lastHistoricalDailyOpenStartTime := dayStartTime
+    else if array.size(historicalDailyOpenLinesArray) > 0
+        currentHistoricalDailyOpenLine = array.get(historicalDailyOpenLinesArray, array.size(historicalDailyOpenLinesArray) - 1)
+        line.set_xy1(currentHistoricalDailyOpenLine, dayStartTime, dailyOpenPrice)
+        line.set_xy2(currentHistoricalDailyOpenLine, dayEndTime, dailyOpenPrice)
+        line.set_color(currentHistoricalDailyOpenLine, dailyOpenColor)
+        line.set_style(currentHistoricalDailyOpenLine, dailyOpenLineStyle)
+        line.set_width(currentHistoricalDailyOpenLine, 1)
+        line.set_extend(currentHistoricalDailyOpenLine, dailyOpenLineExtend)
 
 if not showDaySeparatorLinesNow
     if array.size(daySeparatorLinesArray) > 0
@@ -574,6 +605,16 @@ bool calculateADR = showADR and isIntradayTimeframe
 float dailyADR50HighLevel = dailyADRHighLevel - dailyADRValue / 2
 float dailyADR50LowLevel = dailyADRLowLevel + dailyADRValue / 2
 bool showADRMetrics = adrMetricDisplayMode != 'Off'
+var bool dailyADRHit = false
+bool dailyADRHighHit = calculateADR and not na(dailyADRHighLevel) and not na(currentDayHigh) and currentDayHigh >= dailyADRHighLevel
+bool dailyADRLowHit = calculateADR and not na(dailyADRLowLevel) and not na(currentDayLow) and currentDayLow <= dailyADRLowLevel
+bool dailyADRHitNow = dailyADRHighHit or dailyADRLowHit
+if isNewDay or not calculateADR
+    dailyADRHit := false
+if dailyADRHitNow
+    dailyADRHit := true
+color activeADRColor = dailyADRHit ? color.red : adrColor
+int activeADRLineWidth = dailyADRHit ? 2 : 1
 
 bool showAWR = input.bool(group = 'Average Weekly Range - AWR (intraday only)', title = 'Show AWR Line', defval = false, inline = 'awr')
 bool showWeeklyOpenAWR = input.bool(group = 'Average Weekly Range - AWR (intraday only)', title = 'Use Weekly Open for AWR Calculation', defval = false, inline = 'awr', tooltip = 'Measure the AWR from the weekly open. This will make the AWR static throughout the week. AWR is usually measured taking this weeks High / Low. Since this weeks High / Low will change throughout the week, some might prefer to have a static range instead.')
@@ -851,6 +892,18 @@ if barstate.islast
         psychologicalHighLabel := f_deleteLabel(psychologicalHighLabel)
         psychologicalLowLabel := f_deleteLabel(psychologicalLowLabel)
 
+f_sessionEndTime(string session, string tz, int referenceTime) =>
+    int startHour = int(str.tonumber(str.substring(session, 0, 2)))
+    int startMinute = int(str.tonumber(str.substring(session, 2, 4)))
+    int endHourRaw = int(str.tonumber(str.substring(session, 5, 7)))
+    int endMinute = int(str.tonumber(str.substring(session, 7, 9)))
+    int endDayOffset = int(math.floor(endHourRaw / 24))
+    int endHour = endHourRaw % 24
+    int sessionStartTimestamp = timestamp(tz, year(referenceTime, tz), month(referenceTime, tz), dayofmonth(referenceTime, tz), startHour, startMinute)
+    int sessionEndTimestamp = timestamp(tz, year(referenceTime, tz), month(referenceTime, tz), dayofmonth(referenceTime, tz), endHour, endMinute) + endDayOffset * ONE_DAY_IN_MILLISECONDS
+
+    sessionEndTimestamp <= sessionStartTimestamp ? sessionEndTimestamp + ONE_DAY_IN_MILLISECONDS : sessionEndTimestamp
+
 f_sessionHLBox(
     bool enabled,
     string sessTime,
@@ -875,6 +928,7 @@ f_sessionHLBox(
     var float sessionLow = na
     var float sessionOpen = na
     var int sessionStartTime = na
+    var int sessionEndTime = na
 
     bool inSession = enabled and not na(time_close(timeframe.period, sessTime, tz))
 
@@ -883,9 +937,11 @@ f_sessionHLBox(
         sessionLow := low
         sessionOpen := open
         sessionStartTime := time
-        sessionBox := box.new(bar_index, high, bar_index, low, bgcolor = boxColor, border_color = boxColor)
-        sessionLabel := showMarketSessionLabels ? label.new(bar_index, high, labelText, style = label.style_none, textcolor = labelColor, size = size.small, yloc = yloc.price) : na
-        metricLabel := showSessionMetrics and sessionMetricsAllowedTf ? label.new(bar_index, low, '', style = label.style_label_up, textcolor = color.new(labelColor, 0), color = color.new(boxColor, 100), size = size.small, yloc = yloc.price) : na
+        sessionEndTime := f_sessionEndTime(sessTime, tz, time)
+        midX = math.round((sessionStartTime + sessionEndTime) / 2.0)
+        sessionBox := box.new(left = sessionStartTime, top = high, right = sessionEndTime, bottom = low, xloc = xloc.bar_time, bgcolor = boxColor, border_color = boxColor)
+        sessionLabel := showMarketSessionLabels ? label.new(x = midX, y = high, text = labelText, xloc = xloc.bar_time, style = label.style_none, textcolor = labelColor, size = size.small, yloc = yloc.price) : na
+        metricLabel := showSessionMetrics and sessionMetricsAllowedTf ? label.new(x = midX, y = low, text = '', xloc = xloc.bar_time, style = label.style_label_up, textcolor = color.new(labelColor, 0), color = color.new(boxColor, 100), size = size.small, yloc = yloc.price) : na
 
         if showHighLowLines
             sessionHighLine := line.new(x1 = sessionStartTime, y1 = sessionHigh, x2 = dayEndTime, y2 = sessionHigh, xloc = xloc.bar_time, color = highLowLineColor, style = highLowLineStyle, width = 1)
@@ -900,9 +956,9 @@ f_sessionHLBox(
         sessionLow := math.min(sessionLow, low)
         box.set_top(sessionBox, sessionHigh)
         box.set_bottom(sessionBox, sessionLow)
-        box.set_right(sessionBox, bar_index)
+        box.set_right(sessionBox, sessionEndTime)
         sessionRange = sessionHigh - sessionLow
-        midX = math.round((box.get_left(sessionBox) + box.get_right(sessionBox)) / 2.0)
+        midX = math.round((sessionStartTime + sessionEndTime) / 2.0)
         topOffset = math.max(sessionRange * 0.02, syminfo.mintick * 8)
         bottomOffset = 0
 
@@ -943,23 +999,18 @@ f_sessionHLBox(
         sessionHigh := na
         sessionLow := na
         sessionOpen := na
+        sessionEndTime := na
 
 if barstate.islast
     if showDailyOpenLine and isIntradayTimeframe and not showHistoricalDailyOpenLines
         dailyOpenLine := f_upsertLine(dailyOpenLine, dayStartTime, dailyOpenPrice, dayEndTime, dailyOpenPrice, dailyOpenColor, dailyOpenLineStyle, dailyOpenLineExtend)
-        if showDailyOpenLabel
-            dailyOpenLabel := f_upsertLabel(dailyOpenLabel, dayEndTime, dailyOpenPrice, DAILY_OPEN_LABEL, dailyOpenColor)
-        else
-            if not na(dailyOpenLabel)
-                label.delete(dailyOpenLabel)
-                dailyOpenLabel := na
     else
-        if not na(dailyOpenLine)
-            line.delete(dailyOpenLine)
-            dailyOpenLine := na
-        if not na(dailyOpenLabel)
-            label.delete(dailyOpenLabel)
-            dailyOpenLabel := na
+        dailyOpenLine := f_deleteLine(dailyOpenLine)
+
+    if showDailyOpenLine and isIntradayTimeframe and showDailyOpenLabel
+        dailyOpenLabel := f_upsertLabel(dailyOpenLabel, dayEndTime, dailyOpenPrice, DAILY_OPEN_LABEL, dailyOpenColor)
+    else
+        dailyOpenLabel := f_deleteLabel(dailyOpenLabel)
 
     if isIntradayTimeframe and showPreviousDayHighLow
         previousDayHighLine := f_upsertLine(previousDayHighLine, dayStartTime, previousDayHigh, dayEndTime, previousDayHigh, previousDayHighLowColor, previousDayHighLowStyle, previousDayLineExtend)
@@ -1052,8 +1103,12 @@ if barstate.islast
             previousWeekLowLabel
 
     if showADR and isIntradayTimeframe
-        adrHighLine := f_upsertLine(adrHighLine, dayStartTime, dailyADRHighLevel, dayEndTime, dailyADRHighLevel, adrColor, adrStyle, adrLineExtend)
-        adrLowLine := f_upsertLine(adrLowLine, dayStartTime, dailyADRLowLevel, dayEndTime, dailyADRLowLevel, adrColor, adrStyle, adrLineExtend)
+        adrHighLine := f_upsertLine(adrHighLine, dayStartTime, dailyADRHighLevel, dayEndTime, dailyADRHighLevel, activeADRColor, adrStyle, adrLineExtend)
+        adrLowLine := f_upsertLine(adrLowLine, dayStartTime, dailyADRLowLevel, dayEndTime, dailyADRLowLevel, activeADRColor, adrStyle, adrLineExtend)
+        if not na(adrHighLine)
+            line.set_width(adrHighLine, activeADRLineWidth)
+        if not na(adrLowLine)
+            line.set_width(adrLowLine, activeADRLineWidth)
     else
         if not na(adrHighLine)
             line.delete(adrHighLine)
@@ -1074,8 +1129,8 @@ if barstate.islast
             adr50LowLine := na
 
     if showADR and isIntradayTimeframe and showADRLabels
-        adrHighLabel := f_upsertLabel(adrHighLabel, dayEndTime, dailyADRHighLevel, ADR_HIGH_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), adrColor)
-        adrLowLabel := f_upsertLabel(adrLowLabel, dayEndTime, dailyADRLowLevel, ADR_LOW_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), adrColor)
+        adrHighLabel := f_upsertLabel(adrHighLabel, dayEndTime, dailyADRHighLevel, ADR_HIGH_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), activeADRColor)
+        adrLowLabel := f_upsertLabel(adrLowLabel, dayEndTime, dailyADRLowLevel, ADR_LOW_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), activeADRColor)
     else
         if not na(adrHighLabel)
             label.delete(adrHighLabel)
@@ -1085,8 +1140,8 @@ if barstate.islast
             adrLowLabel := na
 
     if showADR and showADR50 and isIntradayTimeframe and showADRLabels
-        adr50HighLabel := f_upsertLabel(adr50HighLabel, dayEndTime, dailyADR50HighLevel, ADR_50_HIGH_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), adrColor)
-        adr50LowLabel := f_upsertLabel(adr50LowLabel, dayEndTime, dailyADR50LowLevel, ADR_50_LOW_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), adrColor)
+        adr50HighLabel := f_upsertLabel(adr50HighLabel, dayEndTime, dailyADR50HighLevel, ADR_50_HIGH_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), activeADRColor)
+        adr50LowLabel := f_upsertLabel(adr50LowLabel, dayEndTime, dailyADR50LowLevel, ADR_50_LOW_LABEL + (showDailyOpenADR ? DAILY_OPEN_SUFFIX : ''), activeADRColor)
     else
         if not na(adr50HighLabel)
             label.delete(adr50HighLabel)
@@ -1099,7 +1154,7 @@ if barstate.islast
         adrRangeOffset = showADR50 ? math.max(syminfo.mintick * 20, dailyADRValue * 0.02) : 0.0
         adrMid = (dailyADRHighLevel + dailyADRLowLevel) / 2 + adrRangeOffset
         adrText = ADR_RANGE_PREFIX + f_formatRangeMetric(dailyADRValue, adrMetricDisplayMode) + '\n' + ADR_3X_PREFIX + f_formatRangeMetric(dailyADRValue * 3, adrMetricDisplayMode)
-        adrRangeLabel := f_upsertLabel(adrRangeLabel, dayEndTime, adrMid, adrText, adrColor)
+        adrRangeLabel := f_upsertLabel(adrRangeLabel, dayEndTime, adrMid, adrText, activeADRColor)
     else
         if not na(adrRangeLabel)
             label.delete(adrRangeLabel)
@@ -1109,7 +1164,7 @@ if barstate.islast
         adrRangeOffset50 = math.max(syminfo.mintick * 10, dailyADRValue * 0.02)
         adrMid50 = (dailyADR50HighLevel + dailyADR50LowLevel) / 2 - adrRangeOffset50
         adrText50 = ADR_50_RANGE_PREFIX + f_formatRangeMetric(dailyADRValue / 2, adrMetricDisplayMode)
-        adr50RangeLabel := f_upsertLabel(adr50RangeLabel, dayEndTime, adrMid50, adrText50, adrColor)
+        adr50RangeLabel := f_upsertLabel(adr50RangeLabel, dayEndTime, adrMid50, adrText50, activeADRColor)
     else
         if not na(adr50RangeLabel)
             label.delete(adr50RangeLabel)
