@@ -4,14 +4,13 @@
 
 ## Sources
 
-* **Traders Reality PVSRA Library:** [https://www.tradingview.com/script/8zgJTM9u-Traders-Reality-Lib/](https://www.tradingview.com/script/8zgJTM9u-Traders-Reality-Lib/)
 * **Steve Mauro - Beat the Market Maker (BTMM):** [https://beatthemarketmaker.com/](https://beatthemarketmaker.com/)
 
 ---
 
 ## Overview
 
-**Vector Candles × Market Maker Cycle** is a personal all-in-one overlay indicator that fuses the **Traders Reality PVSRA vector candle engine** with the structural price levels, session boxes, and range tools central to **Steve Mauro's Beat the Market Maker (BTMM)** methodology.
+**Vector Candles × Market Maker Cycle** is a personal all-in-one overlay indicator that fuses **PVSRA-style vector candle logic** with the structural price levels, session boxes, and range tools central to **Steve Mauro's Beat the Market Maker (BTMM)** methodology.
 
 Rather than loading multiple separate indicators, this consolidates everything onto a single clean overlay: PVSRA candle coloring, EMA structure, market session High/Low boxes, key daily/weekly levels, ADR/AWR/AMR ranges, pivot points, M Levels, and psychological levels, all configurable from one settings panel.
 
@@ -23,7 +22,7 @@ This is a **personal build**, stripped to exactly what is needed for daily BTMM-
 
 * **PVSRA candle coloring** as the primary volume confirmation engine
 * **BTMM session boxes** (Asia, EU Brinks, London, US Brinks, New York) with live High/Low tracking and range metrics
-* **ADR, AWR, AMR** range levels calculated from the Traders Reality library, with 50% midpoints and optional metric labels
+* **ADR, AWR, AMR** range levels calculated directly in the script, with 50% midpoints and optional metric labels
 * **EMA structure** (5/13/50/200/800) for trend context
 * **Pivot Points and M Levels** for intraday decision zones
 * **Psychological levels** based on weekly Sydney/Tokyo session logic
@@ -53,7 +52,7 @@ Everything is wired to display only on relevant timeframes. Session boxes and ra
 
 Live High/Low boxes that expand each bar with optional session name labels and a session metric label at close:
 
-* **Asia:** 17:00 to 01:00 New York time
+* **Asia:** 17:00 to 00:00 New York time
 * **EU Brinks:** 08:00 to 09:00 London time
 * **London:** 08:00 to 17:00 London time
 * **US Brinks:** 09:00 to 10:00 New York time
@@ -76,7 +75,7 @@ Additional session options:
 
 Three range families (ADR with 14-day default, AWR with 4-week default, AMR with 6-month default), each with:
 
-* High and Low lines from the Traders Reality `adrHiLo` calculation
+* High and Low lines calculated directly from completed period ranges
 * Optional **50% midpoint** lines
 * Range measured from either the period's Open (static) or running High/Low (dynamic)
 * **Metric label** showing the range value and a **3× multiplier** alongside it
@@ -100,7 +99,7 @@ Three range families (ADR with 14-day default, AWR with 4-week default, AMR with
 
 ### Psychological Levels (Intraday Only)
 
-* Weekly High/Low psychological levels via Sydney/Tokyo session logic (Traders Reality library)
+* Weekly High/Low psychological levels via in-script Sydney/Tokyo session logic
 * Supported timeframes: 1m, 3m, 5m, 15m, 30m, 1h
 * Optional historical stepline plot
 * Independent colors for High and Low
@@ -162,6 +161,5 @@ Three range families (ADR with 14-day default, AWR with 4-week default, AMR with
 
 ## Credits
 
-* **Traders Reality Library** - PVSRA engine, ADR/AWR/AMR calculations, pivot drawing, psychological levels: [TradersReality/Traders_Reality_Lib](https://www.tradingview.com/script/8zgJTM9u-Traders-Reality-Lib/)
 * **Steve Mauro - Beat the Market Maker (BTMM)** - session box structure, M Levels, ADR/AWR/AMR range methodology, key level framework
 * **Version:** Pine Script v6

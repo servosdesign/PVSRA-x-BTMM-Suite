@@ -1,5 +1,5 @@
 //@version=6
-indicator(title = 'PVSRA x BTMM Day Week Lines', shorttitle = 'BTMM Day Week', overlay = true, max_bars_back = 300, max_lines_count = 500, max_labels_count = 500, behind_chart = false)
+indicator(title = 'BTMM Day Week Lines', shorttitle = 'BTMM Day Week', overlay = true, max_bars_back = 300, max_lines_count = 500, max_labels_count = 500, behind_chart = false)
 
 const int ONE_WEEK_IN_MILLISECONDS = 7 * 24 * 60 * 60 * 1000
 const string REGULAR_TRADING_HOURS_SESSION = '0930-1600'

@@ -1,5 +1,5 @@
 //@version=6
-indicator(title = 'PVSRA x BTMM Session Boxes', shorttitle = 'PVSRA Sessions', overlay = true, max_bars_back = 300, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
+indicator(title = 'BTMM Session Boxes', shorttitle = 'BTMM Boxes', overlay = true, max_bars_back = 300, max_boxes_count = 500, max_lines_count = 500, max_labels_count = 500)
 
 const int ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const string FOREX = 'forex'
@@ -10,7 +10,7 @@ const string CURRENCY_METRIC = 'Currency'
 const string JPY_TICKER = 'JPY'
 const string NEW_YORK_TIMEZONE = 'America/New_York'
 const string LONDON_TIMEZONE = 'Europe/London'
-const string ASIA_SESSION_DEFAULT = '1700-0100'
+const string ASIA_SESSION_DEFAULT = '1700-0045'
 const string EU_BRINKS_SESSION_DEFAULT = '0800-0900'
 const string LONDON_SESSION_DEFAULT = '0800-1700'
 const string US_BRINKS_SESSION_DEFAULT = '0900-1000'
@@ -36,19 +36,6 @@ string currencySymbol = syminfo.currency == 'USD' ? '$' :
      syminfo.currency == 'EUR' ? 'EUR ' :
      syminfo.currency == 'GBP' ? 'GBP ' : ''
 
-f_extendSession(string session) =>
-    startHour = str.tonumber(str.substring(session, 0, 2))
-    startMinute = str.tonumber(str.substring(session, 2, 4))
-    endHour = str.tonumber(str.substring(session, 5, 7))
-    endMinute = str.tonumber(str.substring(session, 7, 9))
-    timeframeMinute = isMinuteChart ? timeframe.multiplier : 1
-    newEndMinute = endMinute + timeframeMinute
-    newEndHour = endHour + math.floor(newEndMinute / 60)
-    newEndMinute := newEndMinute % 60
-
-    str.format('{0,number,00}{1,number,00}-{2,number,00}{3,number,00}',
-        startHour, startMinute, newEndHour, newEndMinute)
-
 f_formatCurrency(float currency) =>
     currencySymbol != '' ? currencySymbol + str.tostring(currency, format.mintick) :
      str.tostring(currency, format.mintick) + ' ' + syminfo.currency
@@ -57,6 +44,19 @@ f_resolveLineStyle(simple string lineStyle) =>
     lineStyle == DOTTED ? DOTTED_LINE_STYLE :
      lineStyle == SOLID ? SOLID_LINE_STYLE :
       DASHED_LINE_STYLE
+
+f_extendSessionByChartTimeframe(string session) =>
+    string sessionDays = str.length(session) > 9 ? str.substring(session, 9, str.length(session)) : ''
+    int startHour = int(str.tonumber(str.substring(session, 0, 2)))
+    int startMinute = int(str.tonumber(str.substring(session, 2, 4)))
+    int endHourRaw = int(str.tonumber(str.substring(session, 5, 7)))
+    int endMinute = int(str.tonumber(str.substring(session, 7, 9)))
+    int timeframeMinutes = isMinuteChart ? timeframe.multiplier : 1
+    int paddedEndTotalMinutes = endHourRaw * 60 + endMinute + timeframeMinutes
+    int paddedEndHour = int(math.floor(paddedEndTotalMinutes / 60))
+    int paddedEndMinute = paddedEndTotalMinutes % 60
+
+    str.format('{0,number,00}{1,number,00}-{2,number,00}{3,number,00}{4}', startHour, startMinute, paddedEndHour, paddedEndMinute, sessionDays)
 
 bool showMarketSessions = input.bool(true, group = 'Market sessions (Intraday Only)', title = 'Show Market Sessions') and isIntradayVisibleTimeframe
 bool showMarketSessionLabels = input.bool(false, group = 'Market sessions (Intraday Only)', title = 'Show Market Session Labels')
@@ -71,9 +71,11 @@ bool showAsiaSession = input.bool(group = 'Market session: Asia (Intraday Only)'
 string asianSessionLabelText = input.string(group = 'Market session: Asia (Intraday Only)', defval = 'Asia', title = 'Name:', inline = 'asiastyle')
 color asianSessionBoxColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Box Color', defval = color.rgb(190, 190, 190, 75), inline = 'asiastyle')
 color asianSessionTextColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'asiastyle')
-string asianSessionInputTime = input.session(group = 'Market session: Asia (Intraday Only)', defval = ASIA_SESSION_DEFAULT, title = 'Time (ET):', inline = 'asiastyle')
-string asianSessionTimeRaw = f_extendSession(asianSessionInputTime)
-string asianSessionTime = showMarketSessionsOnWeekends ? asianSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
+string asianSessionInputTime = ASIA_SESSION_DEFAULT
+string asianSessionBoxTimeRaw = f_extendSessionByChartTimeframe(asianSessionInputTime)
+string asianSessionCalculationTimeRaw = f_extendSessionByChartTimeframe(asianSessionBoxTimeRaw)
+string asianSessionBoxTime = showMarketSessionsOnWeekends ? asianSessionBoxTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionBoxTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
+string asianSessionCalculationTime = showMarketSessionsOnWeekends ? asianSessionCalculationTimeRaw + ALL_DAYS_SESSION_SUFFIX : asianSessionCalculationTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 bool showAsianSessionHighLowLines = input.bool(group = 'Market session: Asia (Intraday Only)', defval = false, title = 'Show High/Low Lines', inline = 'asiahilo')
 color asianSessionHighLowLineColor = input.color(group = 'Market session: Asia (Intraday Only)', title = 'High/Low Color', defval = color.gray, inline = 'asiahilo')
 string asianSessionHighLowLineStyleX = input.string(group = 'Market session: Asia (Intraday Only)', defval = DOTTED, title = 'Style', options = [DOTTED, DASHED, SOLID], inline = 'asiahilo')
@@ -87,28 +89,28 @@ bool showEuBrinksSession = input.bool(group = 'Market session: EU Brinks (Intrad
 string euBrinksSessionLabelText = input.string(group = 'Market session: EU Brinks (Intraday Only)', defval = 'EU Brinks', title = 'Name:', inline = 'eubrinksstyle')
 color euBrinksSessionBoxColor = input.color(group = 'Market session: EU Brinks (Intraday Only)', title = 'Box Color', defval = color.rgb(176, 196, 222, 30), inline = 'eubrinksstyle')
 color euBrinksSessionTextColor = input.color(group = 'Market session: EU Brinks (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'eubrinksstyle')
-string euBrinksSessionTimeRaw = f_extendSession(input.session(group = 'Market session: EU Brinks (Intraday Only)', defval = EU_BRINKS_SESSION_DEFAULT, title = 'Time (London):', inline = 'eubrinksstyle'))
+string euBrinksSessionTimeRaw = input.session(group = 'Market session: EU Brinks (Intraday Only)', defval = EU_BRINKS_SESSION_DEFAULT, title = 'Time (London):', inline = 'eubrinksstyle')
 string euBrinksSessionTime = showMarketSessionsOnWeekends ? euBrinksSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : euBrinksSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 bool showLondonSession = input.bool(group = 'Market session: London (Intraday Only)', defval = false, title = 'Show Session', inline = 'londonconf') and showMarketSessions
 string londonSessionLabelText = input.string(group = 'Market session: London (Intraday Only)', defval = 'London', title = 'Name:', inline = 'londonstyle')
 color londonSessionBoxColor = input.color(group = 'Market session: London (Intraday Only)', title = 'Box Color', defval = color.rgb(247, 248, 173, 75), inline = 'londonstyle')
 color londonSessionTextColor = input.color(group = 'Market session: London (Intraday Only)', title = 'Text Color', defval = color.yellow, inline = 'londonstyle')
-string londonSessionTimeRaw = f_extendSession(input.session(group = 'Market session: London (Intraday Only)', defval = LONDON_SESSION_DEFAULT, title = 'Time (London):', inline = 'londonstyle'))
+string londonSessionTimeRaw = input.session(group = 'Market session: London (Intraday Only)', defval = LONDON_SESSION_DEFAULT, title = 'Time (London):', inline = 'londonstyle')
 string londonSessionTime = showMarketSessionsOnWeekends ? londonSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : londonSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 bool showUsBrinksSession = input.bool(group = 'Market session: US Brinks (Intraday Only)', defval = true, title = 'Show Session', inline = 'usbrinksconf') and showMarketSessions
 string usBrinksSessionLabelText = input.string(group = 'Market session: US Brinks (Intraday Only)', defval = 'US Brinks', title = 'Name:', inline = 'usbrinksstyle')
 color usBrinksSessionBoxColor = input.color(group = 'Market session: US Brinks (Intraday Only)', title = 'Box Color', defval = color.rgb(176, 196, 222, 30), inline = 'usbrinksstyle')
 color usBrinksSessionTextColor = input.color(group = 'Market session: US Brinks (Intraday Only)', title = 'Text Color', defval = color.rgb(128, 128, 128, 0), inline = 'usbrinksstyle')
-string usBrinksSessionTimeRaw = f_extendSession(input.session(group = 'Market session: US Brinks (Intraday Only)', defval = US_BRINKS_SESSION_DEFAULT, title = 'Time (ET):', inline = 'usbrinksstyle'))
+string usBrinksSessionTimeRaw = input.session(group = 'Market session: US Brinks (Intraday Only)', defval = US_BRINKS_SESSION_DEFAULT, title = 'Time (ET):', inline = 'usbrinksstyle')
 string usBrinksSessionTime = showMarketSessionsOnWeekends ? usBrinksSessionTimeRaw + ALL_DAYS_SESSION_SUFFIX : usBrinksSessionTimeRaw + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 bool showNewYorkSession = input.bool(group = 'Market session: New York (Intraday Only)', defval = true, title = 'Show Session', inline = 'nyconf') and showMarketSessions
 string newYorkSessionLabelText = input.string(group = 'Market session: New York (Intraday Only)', defval = 'New York', title = 'Name:', inline = 'nystyle')
 color newYorkSessionBoxColor = input.color(group = 'Market session: New York (Intraday Only)', title = 'Box Color', defval = color.rgb(255, 173, 187, 75), inline = 'nystyle')
 color newYorkSessionTextColor = input.color(group = 'Market session: New York (Intraday Only)', title = 'Text Color', defval = color.rgb(255, 161, 173), inline = 'nystyle')
-string newYorkSessionInputTime = f_extendSession(input.session(group = 'Market session: New York (Intraday Only)', defval = NEW_YORK_SESSION_DEFAULT, title = 'Time (ET):', inline = 'nystyle'))
+string newYorkSessionInputTime = input.session(group = 'Market session: New York (Intraday Only)', defval = NEW_YORK_SESSION_DEFAULT, title = 'Time (ET):', inline = 'nystyle')
 string newYorkSessionTime = showMarketSessionsOnWeekends ? newYorkSessionInputTime + ALL_DAYS_SESSION_SUFFIX : newYorkSessionInputTime + WEEKDAYS_ONLY_SESSION_SUFFIX
 
 f_sessionEndTime(string session, string tz, int referenceTime) =>
@@ -125,7 +127,8 @@ f_sessionEndTime(string session, string tz, int referenceTime) =>
 
 f_sessionHLBox(
     bool enabled,
-    string sessTime,
+    string calculationSessTime,
+    string boxSessTime,
     color boxColor,
     color labelColor,
     string labelText,
@@ -149,14 +152,14 @@ f_sessionHLBox(
     var int sessionStartTime = na
     var int sessionEndTime = na
 
-    bool inSession = enabled and not na(time_close(timeframe.period, sessTime, tz))
+    bool inSession = enabled and not na(time(timeframe.period, calculationSessTime, tz))
 
     if inSession and not inSession[1]
         sessionHigh := high
         sessionLow := low
         sessionOpen := open
         sessionStartTime := time
-        sessionEndTime := f_sessionEndTime(sessTime, tz, time)
+        sessionEndTime := f_sessionEndTime(boxSessTime, tz, time)
         midX = math.round((sessionStartTime + sessionEndTime) / 2.0)
         sessionBox := box.new(left = sessionStartTime, top = high, right = sessionEndTime, bottom = low, xloc = xloc.bar_time, bgcolor = boxColor, border_color = boxColor)
         sessionLabel := showMarketSessionLabels ? label.new(x = midX, y = high, text = labelText, xloc = xloc.bar_time, style = label.style_none, textcolor = labelColor, size = size.small, yloc = yloc.price) : na
@@ -222,7 +225,8 @@ f_sessionHLBox(
 
 f_sessionHLBox(
     showAsiaSession,
-    asianSessionTime,
+    asianSessionCalculationTime,
+    asianSessionBoxTime,
     asianSessionBoxColor,
     asianSessionTextColor,
     asianSessionLabelText,
@@ -237,6 +241,7 @@ f_sessionHLBox(
 
 f_sessionHLBox(
     showEuBrinksSession,
+    euBrinksSessionTime,
     euBrinksSessionTime,
     euBrinksSessionBoxColor,
     euBrinksSessionTextColor,
@@ -253,6 +258,7 @@ f_sessionHLBox(
 f_sessionHLBox(
     showLondonSession,
     londonSessionTime,
+    londonSessionTime,
     londonSessionBoxColor,
     londonSessionTextColor,
     londonSessionLabelText,
@@ -268,6 +274,7 @@ f_sessionHLBox(
 f_sessionHLBox(
     showUsBrinksSession,
     usBrinksSessionTime,
+    usBrinksSessionTime,
     usBrinksSessionBoxColor,
     usBrinksSessionTextColor,
     usBrinksSessionLabelText,
@@ -282,6 +289,7 @@ f_sessionHLBox(
 
 f_sessionHLBox(
     showNewYorkSession,
+    newYorkSessionTime,
     newYorkSessionTime,
     newYorkSessionBoxColor,
     newYorkSessionTextColor,

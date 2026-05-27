@@ -1,5 +1,5 @@
 //@version=6
-indicator(title = 'PVSRA x BTMM Horizontal Lines', shorttitle = 'BTMM H-Lines', overlay = true, max_bars_back = 300, max_lines_count = 500, max_labels_count = 500, dynamic_requests = true, behind_chart = false)
+indicator(title = 'BTMM Horizontal Lines', shorttitle = 'BTMM H-Lines', overlay = true, max_bars_back = 300, max_lines_count = 500, max_labels_count = 500, dynamic_requests = true, behind_chart = false)
 
 const int MAX_HISTORICAL_DAILY_OPEN_DAYS = 200
 const int MAX_HISTORICAL_PSYCHOLOGICAL_WEEKS = 100
@@ -11,7 +11,7 @@ const string RANGE_METRIC = 'Range'
 const string CURRENCY_METRIC = 'Currency'
 const string JPY_TICKER = 'JPY'
 const string NEW_YORK_TIMEZONE = 'America/New_York'
-const string ASIA_SESSION_DEFAULT = '1700-0100'
+const string ASIA_SESSION_DEFAULT = '1700-0000'
 const string DOTTED = 'Dotted'
 const string DASHED = 'Dashed'
 const string SOLID = 'Solid'
@@ -367,7 +367,7 @@ if showHistoricalDailyOpenLinesNow and not na(dayStartTime) and not na(dayEndTim
         line.set_extend(currentHistoricalDailyOpenLine, dailyOpenLineExtend)
 
 bool showADR = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Show ADR Line', defval = true, inline = 'adr')
-bool showDailyOpenADR = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Use Daily Open for ADR Calculation', defval = false, inline = 'adr', tooltip = 'Measure the ADR from the daily open. This will make the ADR static throughout the day. ADR is usually measured taking today High / Low. Since todays High / Low will change throughout the day, some might prefer to have a static range instead.')
+bool showDailyOpenADR = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Use Daily Open for ADR Calculation', defval = true, inline = 'adr', tooltip = 'Anchor ADR High/Low to the current daily candle open: ADR High = Daily Open + ADR, ADR Low = Daily Open - ADR. The ADR value still comes from completed daily high-low ranges. Turn off to project ADR from today current high/low, which can move intraday.')
 bool showADRLabels = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Show ADR Labels', defval = true, inline = 'adr1')
 bool showADR50 = input.bool(group = 'Average Daily Range - ADR (intraday only)', title = 'Show 50% ADR Lines and Labels', defval = false, inline = 'adr1')
 string adrMetricDisplayMode = input.string(RANGE_METRIC, 'ADR Range Metrics', options = ['Off', RANGE_METRIC, CURRENCY_METRIC, 'Percent'], group = 'Average Daily Range - ADR (intraday only)', inline = 'adr1')
@@ -552,7 +552,6 @@ bool showPsychologicalLevelsOnSupportedMinuteCharts = isMinuteChart and (timefra
 bool showPsychologicalLevels = input.bool(group = 'Weekly Psychological Levels (Intraday Only)', defval = false, title = 'Show Psychological Levels', inline = 'psyconf') and showPsychologicalLevelsOnSupportedMinuteCharts
 bool showPsychologicalLevelLabels = input.bool(group = 'Weekly Psychological Levels (Intraday Only)', defval = false, title = 'Show Psychological Level Labels', inline = 'psyconf', tooltip = 'The psychological High/Low will only show on these timeframes: 1h/30min/15min/5min/3min/1min. It is disabled on all others. This is because the calculation requires a candle to start at the correct time for Sydney/Tokyo but in other timeframes the data does not have values at the designated time for the Sydney/Tokyo sessions.') and showPsychologicalLevels
 bool showAllHistoricalPsychologicalLevels = input.bool(group = 'Weekly Psychological Levels (Intraday Only)', defval = false, title = 'Show Historical Psychological Levels', inline = 'psyconf') and showPsychologicalLevels
-string psychologicalAsiaSessionInputTime = input.session(group = 'Weekly Psychological Levels (Intraday Only)', defval = ASIA_SESSION_DEFAULT, title = 'Asia Session Time (ET):', inline = 'psyconf2')
 color psychologicalLevelHighColor = input.color(group = 'Weekly Psychological Levels (Intraday Only)', title = 'Psychological High Color', defval = color(#ff9800), inline = 'psyconf1')
 color psychologicalLevelLowColor = input.color(group = 'Weekly Psychological Levels (Intraday Only)', title = 'Psychological Low Color', defval = color(#ff9800), inline = 'psyconf1')
 
@@ -563,7 +562,7 @@ if not showAllHistoricalPsychologicalLevels
     activeHistoricalPsychologicalLowLine := na
 
 if showPsychologicalLevels
-    string psychologicalAsiaSessionTime = psychologicalAsiaSessionInputTime + ALL_DAYS_SESSION_SUFFIX
+    string psychologicalAsiaSessionTime = ASIA_SESSION_DEFAULT + ALL_DAYS_SESSION_SUFFIX
     bool inPsychologicalAsiaSession = not na(time(timeframe.period, psychologicalAsiaSessionTime, NEW_YORK_TIMEZONE))
     int psychologicalBarDay = dayofweek(time, NEW_YORK_TIMEZONE)
     int psychologicalBarHour = hour(time, NEW_YORK_TIMEZONE)

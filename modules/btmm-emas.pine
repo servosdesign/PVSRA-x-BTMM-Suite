@@ -1,5 +1,5 @@
 //@version=6
-indicator(title = 'PVSRA x BTMM EMAs', shorttitle = 'BTMM EMAs', overlay = true, max_bars_back = 800, behind_chart = false)
+indicator(title = 'BTMM EMAs', shorttitle = 'BTMM EMAs', overlay = true, max_bars_back = 800, behind_chart = false)
 
 const int EMA_5_LENGTH = 5
 const int EMA_13_LENGTH = 13
