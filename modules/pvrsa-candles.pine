@@ -1,0 +1,44 @@
+//@version=6
+indicator(title = 'PVSRA Vector Candles', shorttitle = 'PVSRA Vectors', overlay = true)
+
+color vectorRedCandleColor = input.color(title = 'Vector: Red', group = 'Candle Colors', defval = #FF5252, inline = 'vectorCandles', tooltip = 'Bull bars are green and bear bars are red when the bar is with volume >= 200% of the average volume of the 10 previous bars, or bars where the product of candle spread x candle volume is >= the highest for the 10 previous bars.\nBull bars are blue and bear bars are violet when the bar is with volume >= 150% of the average volume of the 10 previous bars.')
+color vectorGreenCandleColor = input.color(title = 'Vector: Green', group = 'Candle Colors', defval = #00E676, inline = 'vectorCandles')
+color vectorVioletCandleColor = input.color(title = 'Vector: Violet', group = 'Candle Colors', defval = #E040FB, inline = 'vectorCandles')
+color vectorBlueCandleColor = input.color(title = 'Vector: Blue', group = 'Candle Colors', defval = #2962ff, inline = 'vectorCandles')
+color bullNormalCandleColor = input.color(color.new(color.white, 0), title = 'Non-Vector: Up', group = 'Candle Colors', inline = 'normalCandles')
+color bearNormalCandleColor = input.color(color.new(color.gray, 0), title = 'Non-Vector: Down', group = 'Candle Colors', inline = 'normalCandles')
+color regularCandleBorderColor = (#9c9c9c)
+
+float averageVolume = ta.sma(volume[1], 10)
+float highLowWeightedVolume = volume * (high - low)
+float highestRecentHighLowWeightedVolume = ta.highest(highLowWeightedVolume[1], 10)
+
+bool isHighVectorVolume = volume >= averageVolume * 2 or highLowWeightedVolume >= highestRecentHighLowWeightedVolume
+bool isMediumVectorVolume = volume >= averageVolume * 1.5
+bool isVectorCandle = isHighVectorVolume or isMediumVectorVolume
+bool isBullCandle = close > open
+
+color candleColor = isBullCandle ?
+     isHighVectorVolume ? vectorGreenCandleColor :
+      isMediumVectorVolume ? vectorBlueCandleColor :
+       bullNormalCandleColor :
+     isHighVectorVolume ? vectorRedCandleColor :
+      isMediumVectorVolume ? vectorVioletCandleColor :
+       bearNormalCandleColor
+bool isRegularBullCandle = isBullCandle and not isVectorCandle
+color candleWickColor = color.black
+color candleBorderColor = isVectorCandle ? candleColor : regularCandleBorderColor
+
+barcolor(color.new(candleColor, 100))
+
+plotcandle(
+     open,
+     high,
+     low,
+     close,
+     title = 'Vector Candles',
+     color = candleColor,
+     wickcolor = candleWickColor,
+     bordercolor = candleBorderColor,
+     display = display.all
+)

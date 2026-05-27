@@ -1,0 +1,36 @@
+//@version=6
+indicator(title = 'PVSRA x BTMM EMAs', shorttitle = 'BTMM EMAs', overlay = true, max_bars_back = 800, behind_chart = false)
+
+const int EMA_5_LENGTH = 5
+const int EMA_13_LENGTH = 13
+const int EMA_50_LENGTH = 50
+const int EMA_200_LENGTH = 200
+const int EMA_800_LENGTH = 800
+const string EMA_5_LABEL = '5 EMA'
+const string EMA_13_LABEL = '13 EMA'
+const string EMA_50_LABEL = '50 EMA'
+const string EMA_200_LABEL = '200 EMA'
+const string EMA_800_LABEL = '800 EMA'
+
+float ema5 = ta.ema(close, EMA_5_LENGTH)
+float ema13 = ta.ema(close, EMA_13_LENGTH)
+float ema50 = ta.ema(close, EMA_50_LENGTH)
+float ema200 = ta.ema(close, EMA_200_LENGTH)
+float ema800 = ta.ema(close, EMA_800_LENGTH)
+
+bool showEma5 = input.bool(group = 'EMA Lines', title = '5', defval = true, inline = 'emaToggles')
+bool showEma13 = input.bool(group = 'EMA Lines', title = '13', defval = true, inline = 'emaToggles')
+bool showEma50 = input.bool(group = 'EMA Lines', title = '50', defval = true, inline = 'emaToggles')
+bool showEma200 = input.bool(group = 'EMA Lines', title = '200', defval = true, inline = 'emaToggles')
+bool showEma800 = input.bool(group = 'EMA Lines', title = '800', defval = true, inline = 'emaToggles')
+color ema5Color = input.color(group = 'EMA Lines', title = '5', defval = color(#feea4a), inline = 'emaColors')
+color ema13Color = input.color(group = 'EMA Lines', title = '13', defval = color(#fd5457), inline = 'emaColors')
+color ema50Color = input.color(group = 'EMA Lines', title = '50', defval = color(#3ee145), inline = 'emaColors')
+color ema200Color = input.color(group = 'EMA Lines', title = '200', defval = color(#7c6db0), inline = 'emaColors')
+color ema800Color = input.color(group = 'EMA Lines', title = '800', defval = color.rgb(155, 198, 248), inline = 'emaColors')
+
+plot(showEma5 ? ema5 : na, color = ema5Color, title = EMA_5_LABEL)
+plot(showEma13 ? ema13 : na, color = ema13Color, title = EMA_13_LABEL)
+plot(showEma50 ? ema50 : na, color = ema50Color, title = EMA_50_LABEL)
+plot(showEma200 ? ema200 : na, color = ema200Color, title = EMA_200_LABEL)
+plot(showEma800 ? ema800 : na, color = ema800Color, title = EMA_800_LABEL)

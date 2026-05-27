@@ -1,0 +1,156 @@
+//@version=6
+indicator(title = 'PVSRA x BTMM Day Week Lines', shorttitle = 'BTMM Day Week', overlay = true, max_bars_back = 300, max_lines_count = 500, max_labels_count = 500, behind_chart = false)
+
+const int ONE_WEEK_IN_MILLISECONDS = 7 * 24 * 60 * 60 * 1000
+const string REGULAR_TRADING_HOURS_SESSION = '0930-1600'
+const string NEW_YORK_TIMEZONE = 'America/New_York'
+const string DAILY_TIMEFRAME = 'D'
+const string DOTTED = 'Dotted'
+const string DASHED = 'Dashed'
+const string SOLID = 'Solid'
+const string DASHED_LINE_STYLE = line.style_dashed
+const string DOTTED_LINE_STYLE = line.style_dotted
+const string SOLID_LINE_STYLE = line.style_solid
+
+var int currentRegularHoursStart = na
+var int currentRegularHoursEnd = na
+var array<line> daySeparatorLinesArray = array.new<line>()
+var array<line> weekSeparatorLinesArray = array.new<line>()
+var array<label> daySeparatorLabelsArray = array.new<label>()
+
+int requestedDayStartTime = request.security(syminfo.tickerid, DAILY_TIMEFRAME, time, lookahead = barmerge.lookahead_on)
+int requestedDayEndTime = request.security(syminfo.tickerid, DAILY_TIMEFRAME, time_close, lookahead = barmerge.lookahead_on)
+int dayStartTime = na(requestedDayStartTime) ? time(DAILY_TIMEFRAME) : requestedDayStartTime
+int dayEndTime = na(requestedDayEndTime) ? time_close(DAILY_TIMEFRAME) : requestedDayEndTime
+int separatorReferenceTime = last_bar_time
+int regularTradingHoursStart = time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE)
+float visibleLabelBase = ta.highest(high, 300)
+float dayLabelY = visibleLabelBase + math.max(ta.atr(14) * 0.25, syminfo.mintick * 20)
+bool isMinuteChart = timeframe.isminutes
+bool isSecondsChart = timeframe.isseconds
+bool isNewDay = ta.change(dayStartTime) != 0
+bool isNewWeek = ta.change(time('W')) != 0
+bool inRegularTradingHours = not na(time(timeframe.period, REGULAR_TRADING_HOURS_SESSION, NEW_YORK_TIMEZONE))
+bool isNewRegularTradingHours = inRegularTradingHours and not inRegularTradingHours[1]
+
+if isNewDay
+    currentRegularHoursStart := na
+    currentRegularHoursEnd := na
+
+if isNewRegularTradingHours
+    currentRegularHoursStart := regularTradingHoursStart
+    currentRegularHoursEnd := timestamp(
+         NEW_YORK_TIMEZONE,
+         year(regularTradingHoursStart, NEW_YORK_TIMEZONE),
+         month(regularTradingHoursStart, NEW_YORK_TIMEZONE),
+         dayofmonth(regularTradingHoursStart, NEW_YORK_TIMEZONE),
+         16,
+         0)
+
+int currentDayMidpoint = not na(currentRegularHoursStart) and not na(currentRegularHoursEnd) ?
+ math.round((currentRegularHoursStart + currentRegularHoursEnd) / 2) :
+ math.round((dayStartTime + dayEndTime) / 2)
+int sessionDay = dayofweek(currentDayMidpoint, NEW_YORK_TIMEZONE)
+
+f_dayName(int day) =>
+    day == dayofweek.monday ? 'Mon' :
+     day == dayofweek.tuesday ? 'Tue' :
+     day == dayofweek.wednesday ? 'Wed' :
+     day == dayofweek.thursday ? 'Thu' :
+     day == dayofweek.friday ? 'Fri' :
+     day == dayofweek.saturday ? 'Sat' : 'Sun'
+
+f_resolveLineStyle(simple string lineStyle) =>
+    lineStyle == DOTTED ? DOTTED_LINE_STYLE :
+     lineStyle == SOLID ? SOLID_LINE_STYLE :
+      DASHED_LINE_STYLE
+
+f_deleteLineArray(array<line> linesArray) =>
+    if array.size(linesArray) > 0
+        for i = 0 to array.size(linesArray) - 1 by 1
+            line.delete(array.get(linesArray, i))
+        array.clear(linesArray)
+
+f_deleteLabelArray(array<label> labelsArray) =>
+    if array.size(labelsArray) > 0
+        for i = 0 to array.size(labelsArray) - 1 by 1
+            label.delete(array.get(labelsArray, i))
+        array.clear(labelsArray)
+
+string dayLabelText = na(sessionDay) ? '' : f_dayName(sessionDay)
+
+bool showDaySeparators = input.bool(true, 'Show Day Separators', group = 'Time Separators')
+bool showDaySeparatorLabels = input.bool(true, 'Show Day Labels', group = 'Time Separators')
+color daySeparatorColor = input.color(color.new(color.gray, 70), 'Day Line Color', group = 'Time Separators', inline = 'daysep')
+string daySeparatorStyleInput = input.string(DOTTED, 'Day Line Style', options = [DOTTED, DASHED, SOLID], group = 'Time Separators', inline = 'daysep')
+int daySeparatorWidth = input.int(1, 'Day Line Width', minval = 1, maxval = 5, group = 'Time Separators', inline = 'daysep')
+bool showWeekSeparators = input.bool(true, 'Show Week Separators', group = 'Time Separators')
+color weekSeparatorColor = input.color(color.new(color.blue, 60), 'Week Line Color', group = 'Time Separators', inline = 'weeksep')
+string weekSeparatorStyleInput = input.string(DOTTED, 'Week Line Style', options = [DOTTED, DASHED, SOLID], group = 'Time Separators', inline = 'weeksep')
+int weekSeparatorWidth = input.int(2, 'Week Line Width', minval = 1, maxval = 5, group = 'Time Separators', inline = 'weeksep')
+color dayLabelColor = input.color(color.gray, 'Day Label Color', group = 'Time Separators')
+int separatorLookbackWeeks = input.int(3, 'Lookback (weeks)', minval = 1, maxval = 52, group = 'Time Separators')
+int maxSeparatorLineTimeframeInMinutes = input.int(240, 'Hide Separator Lines Above Timeframe (min)', minval = 1, maxval = 1439, group = 'Time Separators')
+int maxSeparatorLabelTimeframeInMinutes = input.int(60, 'Hide Day Labels Above Timeframe (min)', minval = 1, maxval = 1439, group = 'Time Separators')
+string daySeparatorStyle = f_resolveLineStyle(daySeparatorStyleInput)
+string weekSeparatorStyle = f_resolveLineStyle(weekSeparatorStyleInput)
+int lookbackStartTime = separatorReferenceTime - separatorLookbackWeeks * ONE_WEEK_IN_MILLISECONDS
+bool isInLookbackWindow = time >= lookbackStartTime
+
+bool separatorLinesAllowedTf = isSecondsChart ? true :
+ isMinuteChart ? timeframe.multiplier <= maxSeparatorLineTimeframeInMinutes :
+ false
+
+bool separatorLabelsAllowedTf = isSecondsChart ? true :
+ isMinuteChart ? timeframe.multiplier <= maxSeparatorLabelTimeframeInMinutes :
+ false
+
+bool showDaySeparatorLinesNow = timeframe.isintraday and isInLookbackWindow and separatorLinesAllowedTf and showDaySeparators
+bool showWeekSeparatorLinesNow = timeframe.isintraday and isInLookbackWindow and separatorLinesAllowedTf and showWeekSeparators
+bool showDayLabelsNow = timeframe.isintraday and isInLookbackWindow and separatorLabelsAllowedTf and showDaySeparatorLabels
+
+if not showDaySeparatorLinesNow
+    f_deleteLineArray(daySeparatorLinesArray)
+
+if not showWeekSeparatorLinesNow
+    f_deleteLineArray(weekSeparatorLinesArray)
+
+if not showDayLabelsNow
+    f_deleteLabelArray(daySeparatorLabelsArray)
+
+if showDayLabelsNow and isNewDay
+    newDayLabel = label.new(
+         currentDayMidpoint,
+         dayLabelY,
+         dayLabelText,
+         xloc = xloc.bar_time,
+         yloc = yloc.price,
+         style = label.style_none,
+         size = size.small,
+         textcolor = dayLabelColor)
+    array.push(daySeparatorLabelsArray, newDayLabel)
+
+if showDaySeparatorLinesNow and isNewDay and not isNewWeek
+    newDayLine = line.new(
+         time, -1e10, time, 1e10,
+         xloc = xloc.bar_time,
+         extend = extend.none,
+         color = daySeparatorColor,
+         style = daySeparatorStyle,
+         width = daySeparatorWidth)
+    array.push(daySeparatorLinesArray, newDayLine)
+
+if showWeekSeparatorLinesNow and isNewWeek
+    newWeekLine = line.new(
+         time, -1e10, time, 1e10,
+         xloc = xloc.bar_time,
+         extend = extend.none,
+         color = weekSeparatorColor,
+         style = weekSeparatorStyle,
+         width = weekSeparatorWidth)
+    array.push(weekSeparatorLinesArray, newWeekLine)
+
+if barstate.islast and array.size(daySeparatorLabelsArray) > 0
+    for i = 0 to array.size(daySeparatorLabelsArray) - 1 by 1
+        existingDayLabel = array.get(daySeparatorLabelsArray, i)
+        label.set_y(existingDayLabel, dayLabelY)
